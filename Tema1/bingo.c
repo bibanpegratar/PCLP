@@ -13,6 +13,7 @@
 #define DSC "DSC"
 #define SHOW "SHOW"
 
+//TODO: type safety
 void read_card(int **card);
 
 //return address of colored cell, if found
@@ -24,16 +25,17 @@ int check_lines(int **card);
 int check_diagonals(int **card);
 int has_bingo(int **card); //returns total points / card
 
-void make_operation(char *s, int **card); //parse input for action, call function
-void swap_columns(int *x, int *y);        //SWAP
-void rotate_down(int *column, int pos);   //SHIFT 
-void asc_sort(int *v);                    //ASC
-void desc_sort(int *v);                   //CESC
+void make_operation(char *s, int ***cards, int n_cards); //parse input for action, call function
+void swap(int *a, int *b);
+void swap_columns(int **card, int x, int y);        //SWAP
+void rotate_down(int **card, int column, int pos);   //SHIFT 
+void asc_sort(int **card, int column);                    //ASC
+void desc_sort(int **card, int column);                   //CESC
 void show_card(int **card);               //SHOW
 
 //allocate and deallocate a matrix
 int** create_matrix(int l, int c);
-void free_matix(char **matrix); //TODO
+void free_matrix(int **matrix, int l);
 
 int main()
 {
@@ -54,22 +56,20 @@ int main()
 		}
 
 		scanf("%d", &m); //number of instructions
+		getchar(); //for \n character left by scanf
+
 		for(int i = 0; i < m; i++)
 		{
 			fgets(instruction_string, sizeof(instruction_string), stdin);
-            for(int k = 0; k < n; k++)
-				make_operation(instruction_string, cards[k]);
+			make_operation(instruction_string, cards, n);
 		}
 		
-		//show all cards, ONLY FOR TESTING
+		//free memory
 		for(int i = 0; i < n; i++)
-		{
-			show_card(cards[i]);
-			printf("\n");
-		}
-
+			free_matrix(cards[i], CARD_LINES);
 	}
-
+	
+	free(cards);
     return 0;
 }
 
@@ -78,19 +78,6 @@ void read_card(int **card)
 	for(int i = 0; i < CARD_LINES; i++)
 		for(int j = 0; j < CARD_COLS; j++)
 			scanf("%d", &card[i][j]);
-}
-
-void show_card(int **card)
-{
-	for(int i = 0; i < CARD_LINES; i++)
-	{
-		for(int j = 0; j < CARD_COLS; j++)
-		{
-			if(card[i][j] == COLOR) printf("#  ");
-			else printf("%2d ", card[i][j]);
-		}
-		printf("\n");
-	}
 }
 
 int* color_cell(int **card, char col, int number)
@@ -192,8 +179,7 @@ int has_bingo(int **card)
 	return nr * BINGO_POINTS;
 }
 
-//TODO : ONLY BALL OPERATION IMPLEMENTED
-void make_operation(char *s, int **card)
+void make_operation(char *s, int ***cards, int n_cards)
 {
 	char *cpy = (char *)malloc(sizeof(s));
 	strcpy(cpy, s);
@@ -203,18 +189,106 @@ void make_operation(char *s, int **card)
 	if(strlen(type) == 1 && strchr(BINGO, *type))
 	{
 		int number = atoi(strtok(NULL, "-"));
-		color_cell(card, *type, number);  
+		for(int i = 0; i < n_cards; i++) 
+			color_cell(cards[i], *type, number);  
 	}
 
 	else if(strcmp(type, SWAP) == 0)
 	{
-		
+		int x = atoi(strtok(NULL, "-"));
+		int y = atoi(strtok(NULL, "-"));
+		for(int i = 0; i < n_cards; i++) 
+			swap_columns(cards[i], x, y);
 	}
 
-	else if(strcmp(type, "ASC") == 0)
+	else if(strcmp(type, ASC) == 0)
 	{
+		int column = atoi(strtok(NULL, "-"));
+		for(int i = 0; i < n_cards; i++) 
+			asc_sort(cards[i], column);
 	}
+
+	else if(strcmp(type, DSC) == 0)
+	{
+		int column = atoi(strtok(NULL, "-"));
+		for(int i = 0; i < n_cards; i++) 
+			desc_sort(cards[i], column);
+	}
+
+	else if(strcmp(type, SHOW) == 0)
+	{
+		int i = atoi(strtok(NULL, "-"));
+		show_card(cards[i]);
+	}
+
 	free(cpy);
+}
+
+void swap(int *a, int *b)
+{
+	int t = *a;
+	*a = *b;
+	*b = t;
+}
+
+void swap_columns(int **card, int x, int y)
+{
+	for(int i = 0; i < CARD_LINES; i++)
+		swap(&card[i][x], &card[i][y]);
+}
+
+void rotate_down(int **card, int column, int pos)
+{
+	int *temp = (int *)malloc(CARD_LINES * sizeof(int));
+	for(int i = 0; i < CARD_LINES; i++)
+		temp[(i + pos) % CARD_LINES] = card[i][column];
+
+	
+	for(int i = 0; i < CARD_LINES; i++)
+		card[i][column] = temp[i];
+}
+
+void asc_sort(int **card, int column)
+{
+	int ok = 1;
+	while(ok)
+	{
+		ok = 0;
+		for(int i = 0; i < CARD_LINES - 1; i++)
+			if(card[i][column] > card[i + 1][column])
+			{
+				swap(&card[i][column], &card[i + 1][column]);
+				ok = 1;
+			}
+	}
+}
+
+void desc_sort(int **card, int column)
+{
+	int ok = 1;
+	while(ok)
+	{
+		ok = 0;
+		for(int i = 0; i < CARD_LINES - 1; i++)
+			if(card[i][column] < card[i + 1][column])
+			{
+				swap(&card[i][column], &card[i + 1][column]);
+				ok = 1;
+			}
+	}
+}
+
+void show_card(int **card)
+{
+	for(int i = 0; i < CARD_LINES; i++)
+	{
+		for(int j = 0; j < CARD_COLS; j++)
+		{
+			if(card[i][j] == COLOR) printf("#  ");
+			else printf("%2d ", card[i][j]);
+		}
+		printf("\n");
+	}
 }
 
 int** create_matrix(int l, int c)
@@ -227,4 +301,12 @@ int** create_matrix(int l, int c)
 	}
 
 	return matrix;
+}
+
+void free_matrix(int **matrix, int l)
+{
+	for(int i = 0; i < l; i++)
+		free(matrix[i]);
+	
+	free(matrix);
 }
