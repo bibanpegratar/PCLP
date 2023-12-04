@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+
 #define CARD_LINES 5
 #define CARD_COLS 5
 #define MIDDLE 2
@@ -326,8 +327,8 @@ void show_card(struct cell **card)
 	{
 		for(int j = 0; j < CARD_COLS; j++)
 		{
-			if(card[i][j].has_color == 1) printf("#  ");
-			else printf("%2d ", card[i][j].number);
+			if(card[i][j].has_color == 1) printf("# ");
+			else printf("%d ", card[i][j].number);
 		}
 		printf("\n");
 	}
