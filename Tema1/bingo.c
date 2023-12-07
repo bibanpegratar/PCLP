@@ -74,7 +74,7 @@ int main()
 	char instruction_string[25];
 	player winner;
 
-	//initialize 
+	//initialize name-column pairs 
 	column_pair columns[5] = 
 	{
 		[0].name = 'B',
@@ -106,15 +106,16 @@ int main()
 			color_cell(cards[i], columns, 'N', cards[i][2][2].number);
 		}
 
-		scanf("%d", &m); //number of instructions
-		getchar(); //for \n character left by scanf
+		scanf("%d", &m);
+		getchar();
 
 		for(int i = 0; i < m; i++)
 		{
 			fgets(instruction_string, 25, stdin);
 			make_operation(instruction_string, cards, columns, n);
 			winner = check_for_winner(cards, n);
-			if(winner.score)
+
+			if(winner.score != 0)
 			{
 				printf("%d\n", winner.card_index);
 				show_card(winner.card);
@@ -125,7 +126,6 @@ int main()
 		
 		printf("NO WINNER\n");
 
-		//free memory
 		for(int i = 0; i < n; i++)
 			free_matrix(cards[i], CARD_LINES);
 	}
@@ -141,11 +141,12 @@ void read_card(cell **card)
 			scanf("%d", &card[i][j].number);
 }
 
+//color a cell, given by COLUMN_NAME-NUMBER pair
 cell* color_cell(cell **card, column_pair *columns, char col, int number)
 {
 	int col_number = -1;
 
-	//letter to column number
+	//find corresponding column index
 	switch(col)
 	{
 		case('B'): col_number = columns[0].column_number; break;
@@ -156,6 +157,7 @@ cell* color_cell(cell **card, column_pair *columns, char col, int number)
 		default: break;
 	}
 
+	//color all cells that on the row that have given number
 	if(col_number != -1)
 	{
 		for(int i = 0; i < CARD_LINES; i++)
@@ -168,6 +170,7 @@ cell* color_cell(cell **card, column_pair *columns, char col, int number)
 	return NULL;
 }
 
+//scans for bingo on column
 int check_columns(cell **card)
 {
 	int cnt = 0, ok;
@@ -185,6 +188,7 @@ int check_columns(cell **card)
 	return cnt;
 }
 
+//scans for bingo on lines
 int check_lines(cell **card)
 {
 	int cnt = 0, ok;
@@ -202,6 +206,7 @@ int check_lines(cell **card)
 	return cnt;
 }
 
+//scans for bingo on diagonals
 int check_diagonals(cell **card)
 {
 	int cnt = 0, ok;
@@ -228,7 +233,7 @@ int check_diagonals(cell **card)
 	return cnt;
 }
 
-		
+//checks for bingo, returns score
 int has_bingo(cell **card)
 {
 	int nr = 0;
@@ -240,6 +245,7 @@ int has_bingo(cell **card)
 	return nr * BINGO_POINTS;
 }
 
+//parse operation string, call corresponding function
 void make_operation(char *s, cell ***cards, column_pair *columns, int n_cards)
 {
 	char *cpy = (char *)malloc(sizeof(s));
@@ -247,6 +253,7 @@ void make_operation(char *s, cell ***cards, column_pair *columns, int n_cards)
 
 	char *type = strtok(cpy, "-");
 	
+	//check if it is a color-cell action type
 	if(strlen(type) == 1 && strchr(BINGO, *type))
 	{
 		int number = atoi(strtok(NULL, "-"));
@@ -254,12 +261,15 @@ void make_operation(char *s, cell ***cards, column_pair *columns, int n_cards)
 			color_cell(cards[i], columns, *type, number);  
 	}
 
+	//make special operation
 	else if(strcmp(type, SWAP) == 0)
 	{
 		int x; sscanf(strtok(NULL, "-"), "%d", &x);
 		int y; sscanf(strtok(NULL, "-"), "%d", &y);
 		for(int i = 0; i < n_cards; i++)
 			swap_columns(cards[i], x, y);
+
+		//needed only once for all cards
 		swap_columns_name(x, y, columns);
 	}
 
@@ -301,6 +311,7 @@ void swap(cell *a, cell *b)
 	*b = t;
 }
 
+//swaps cells of 2 columns
 void swap_columns(cell **card, int x, int y)
 {
 	if(x != y)
@@ -308,9 +319,12 @@ void swap_columns(cell **card, int x, int y)
 			swap(&card[i][x], &card[i][y]);
 }
 
+//swaps each column's name index in columns vector
 void swap_columns_name(int x, int y, column_pair *columns)
 {
 	int i_x = 0, i_y = 0;
+
+	//search column with index x
 	for(int i = 0; i < 5; i++)
 		if(x == columns[i].column_number)
 		{
@@ -318,6 +332,7 @@ void swap_columns_name(int x, int y, column_pair *columns)
 			break;
 		}
 
+	//search column with index y
 	for(int i = 0; i < 5; i++)
 		if(y == columns[i].column_number)
 		{
@@ -325,10 +340,12 @@ void swap_columns_name(int x, int y, column_pair *columns)
 			break;
 		}
 
+	//swap indexes
 	columns[i_x].column_number = y;
 	columns[i_y].column_number = x;
 }
 
+//SHIFT cells down by "pos" positions
 void rotate_down(cell **card, int column, int pos)
 {
 	cell *temp = (cell *)malloc(CARD_LINES * sizeof(cell));
@@ -341,6 +358,7 @@ void rotate_down(cell **card, int column, int pos)
 	free(temp);
 }
 
+//ASC
 void asc_sort(cell **card, int column)
 {
 	int ok = 1;
@@ -356,6 +374,7 @@ void asc_sort(cell **card, int column)
 	}
 }
 
+//DSC
 void desc_sort(cell **card, int column)
 {
 	int ok = 1;
@@ -371,6 +390,7 @@ void desc_sort(cell **card, int column)
 	}
 }
 
+//SHOW
 void show_card(cell **card)
 {
 	for(int i = 0; i < CARD_LINES; i++)
@@ -384,6 +404,7 @@ void show_card(cell **card)
 	}
 }
 
+//verifies if a player has a maximum score, returns first occurence
 player check_for_winner(cell ***cards, int n_cards)
 {
 	player winner;
