@@ -14,60 +14,87 @@
 #define DSC "DSC"
 #define SHOW "SHOW"
 
-struct cell
+//an element in a bingo card
+typedef struct cell
 {
 	int number, has_color;
 	char color_character;
-};
+} cell;
 
-struct cell init_cell()
+cell init_cell()
 {
-	struct cell a;
+	cell a;
 	a.number = 0;
 	a.has_color = 0;
 	a.color_character = COLOR_CHARACTER;
 	return a;
 }
 
-struct player
+typedef struct player
 {
 	int card_index, score;
-	struct cell **card;
-};
+	cell **card;
+} player;
 
-//TODO: type safety
-void read_card(struct cell **card);
+//associate a letter to each column
+typedef struct column_pair
+{
+	char name;
+	int column_number;
+} column_pair;
 
-//return address of colored cell, if found
-struct cell* color_cell(struct cell **card, char col, int number);
-//check for bingo
-int check_columns(struct cell **card);
-int check_lines(struct cell **card);
-int check_diagonals(struct cell **card);
-int has_bingo(struct cell **card); //returns total points / card
+void read_card(cell **card);
 
-void make_operation(char *s, struct cell ***cards, int n_cards); //parse input for action, call function
-void swap(struct cell *a, struct cell *b);
-void swap_columns(struct cell **card, int x, int y);        //SWAP
-void rotate_down(struct cell **card, int column, int pos);   //SHIFT 
-void asc_sort(struct cell **card, int column);                    //ASC
-void desc_sort(struct cell **card, int column);                   //CESC
-void show_card(struct cell **card);               //SHOW
-struct player check_for_winner(struct cell ***cards, int n_cards);
+cell* color_cell(cell **card, column_pair *columns, char col, int number);
+int check_columns(cell **card);
+int check_lines(cell **card);
+int check_diagonals(cell **card);
+int has_bingo(cell **card); 
 
-//allocate and deallocate a matrix
-struct cell** create_matrix(int l, int c);
-void free_matrix(struct cell **matrix, int l);
+void make_operation(char *s, cell ***cards, column_pair *columns, int n_cards);
+
+void swap(cell *a, cell *b);
+void swap_columns(cell **card, int x, int y);
+void swap_columns_name(int x, int y, column_pair *columns);
+
+void rotate_down(cell **card, int column, int pos);
+void asc_sort(cell **card, int column);
+void desc_sort(cell **card, int column);
+void show_card(cell **card);
+
+player check_for_winner(cell ***cards, int n_cards);
+
+cell** create_matrix(int l, int c);
+void free_matrix(cell **matrix, int l);
 
 int main()
 {
 	int n, m;
-	struct cell ***cards = NULL;
+	cell ***cards = NULL;
 	char instruction_string[25];
-	struct player winner;
+	player winner;
 
-	scanf("%d", &n); //number of cards
-	cards = (struct cell  ***)malloc(n * sizeof(struct cell **));
+	//initialize 
+	column_pair columns[5] = 
+	{
+		[0].name = 'B',
+		[0].column_number = 0,
+
+		[1].name = 'I',
+		[1].column_number = 1,
+
+		[2].name = 'N',
+		[2].column_number = 2,
+
+		[3].name = 'G',
+		[3].column_number = 3,
+
+		[4].name = 'O',
+		[4].column_number = 4
+	};
+
+	scanf("%d", &n);
+	cards = (cell  ***)malloc(n * sizeof(cell **));
 
 	if(cards)
 	{
@@ -76,7 +103,7 @@ int main()
 		{
 			cards[i] = create_matrix(CARD_LINES, CARD_COLS);
 			read_card(cards[i]);
-			color_cell(cards[i], 'N', cards[i][2][2].number);
+			color_cell(cards[i], columns, 'N', cards[i][2][2].number);
 		}
 
 		scanf("%d", &m); //number of instructions
@@ -85,7 +112,7 @@ int main()
 		for(int i = 0; i < m; i++)
 		{
 			fgets(instruction_string, 25, stdin);
-			make_operation(instruction_string, cards, n);
+			make_operation(instruction_string, cards, columns, n);
 			winner = check_for_winner(cards, n);
 			if(winner.score)
 			{
@@ -107,25 +134,25 @@ int main()
     return 0;
 }
 
-void read_card(struct cell **card)
+void read_card(cell **card)
 {
 	for(int i = 0; i < CARD_LINES; i++)
 		for(int j = 0; j < CARD_COLS; j++)
 			scanf("%d", &card[i][j].number);
 }
 
-struct cell* color_cell(struct cell **card, char col, int number)
+cell* color_cell(cell **card, column_pair *columns, char col, int number)
 {
 	int col_number = -1;
 
 	//letter to column number
 	switch(col)
 	{
-		case('B'): col_number = 0; break;
-		case('I'): col_number = 1; break;
-		case('N'): col_number = 2; break;
-		case('G'): col_number = 3; break;
-		case('O'): col_number = 4; break;
+		case('B'): col_number = columns[0].column_number; break;
+		case('I'): col_number = columns[1].column_number; break;
+		case('N'): col_number = columns[2].column_number; break;
+		case('G'): col_number = columns[3].column_number; break;
+		case('O'): col_number = columns[4].column_number; break;
 		default: break;
 	}
 
@@ -141,7 +168,7 @@ struct cell* color_cell(struct cell **card, char col, int number)
 	return NULL;
 }
 
-int check_columns(struct cell **card)
+int check_columns(cell **card)
 {
 	int cnt = 0, ok;
 	for(int j = 0; j < CARD_COLS; j++)
@@ -158,7 +185,7 @@ int check_columns(struct cell **card)
 	return cnt;
 }
 
-int check_lines(struct cell **card)
+int check_lines(cell **card)
 {
 	int cnt = 0, ok;
 	for(int i = 0; i < CARD_LINES; i++)
@@ -175,7 +202,7 @@ int check_lines(struct cell **card)
 	return cnt;
 }
 
-int check_diagonals(struct cell **card)
+int check_diagonals(cell **card)
 {
 	int cnt = 0, ok;
 	
@@ -202,7 +229,7 @@ int check_diagonals(struct cell **card)
 }
 
 		
-int has_bingo(struct cell **card)
+int has_bingo(cell **card)
 {
 	int nr = 0;
 
@@ -213,7 +240,7 @@ int has_bingo(struct cell **card)
 	return nr * BINGO_POINTS;
 }
 
-void make_operation(char *s, struct cell ***cards, int n_cards)
+void make_operation(char *s, cell ***cards, column_pair *columns, int n_cards)
 {
 	char *cpy = (char *)malloc(sizeof(s));
 	strcpy(cpy, s);
@@ -224,64 +251,87 @@ void make_operation(char *s, struct cell ***cards, int n_cards)
 	{
 		int number = atoi(strtok(NULL, "-"));
 		for(int i = 0; i < n_cards; i++) 
-			color_cell(cards[i], *type, number);  
+			color_cell(cards[i], columns, *type, number);  
 	}
 
 	else if(strcmp(type, SWAP) == 0)
 	{
-		int x = atoi(strtok(NULL, "-"));
-		int y = atoi(strtok(NULL, "-"));
+		int x; sscanf(strtok(NULL, "-"), "%d", &x);
+		int y; sscanf(strtok(NULL, "-"), "%d", &y);
 		for(int i = 0; i < n_cards; i++)
 			swap_columns(cards[i], x, y);
+		swap_columns_name(x, y, columns);
 	}
 
 	else if(strcmp(type, ASC) == 0)
 	{
-		int column = atoi(strtok(NULL, "-"));
+		int column; sscanf(strtok(NULL, "-"), "%d", &column);
 		for(int i = 0; i < n_cards; i++)
 			asc_sort(cards[i], column);
 	}
 
 	else if(strcmp(type, DSC) == 0)
 	{
-		int column = atoi(strtok(NULL, "-"));
+		int column; sscanf(strtok(NULL, "-"), "%d", &column);
 		for(int i = 0; i < n_cards; i++) 
 			desc_sort(cards[i], column);
 	}
 
 	else if(strcmp(type, SHIFT) == 0)
 	{
-		int column = atoi(strtok(NULL, "-"));
-		int pos = atoi(strtok(NULL, "-"));
+		int column; sscanf(strtok(NULL, "-"), "%d", &column);
+		int pos; sscanf(strtok(NULL, "-"), "%d", &pos);
 		for(int i = 0; i < n_cards; i++)
 			rotate_down(cards[i], column, pos);
 	}
 
 	else if(strcmp(type, SHOW) == 0)
 	{
-		int i = atoi(strtok(NULL, "-"));
+		int i; sscanf(strtok(NULL, "-"), "%d", &i);
 		show_card(cards[i]);
 	}
 
 	free(cpy);
 }
 
-void swap(struct cell *a, struct cell *b)
+void swap(cell *a, cell *b)
 {
-	struct cell t = *a;
+	cell t = *a;
 	*a = *b;
 	*b = t;
 }
 
-void swap_columns(struct cell **card, int x, int y)
+void swap_columns(cell **card, int x, int y)
 {
-	for(int i = 0; i < CARD_LINES; i++)
-		swap(&card[i][x], &card[i][y]);
+	if(x != y)
+		for(int i = 0; i < CARD_LINES; i++)
+			swap(&card[i][x], &card[i][y]);
 }
 
-void rotate_down(struct cell **card, int column, int pos)
+void swap_columns_name(int x, int y, column_pair *columns)
 {
-	struct cell *temp = (struct cell *)malloc(CARD_LINES * sizeof(struct cell));
+	int i_x = 0, i_y = 0;
+	for(int i = 0; i < 5; i++)
+		if(x == columns[i].column_number)
+		{
+			i_x = i;
+			break;
+		}
+
+	for(int i = 0; i < 5; i++)
+		if(y == columns[i].column_number)
+		{
+			i_y = i;
+			break;
+		}
+
+	columns[i_x].column_number = y;
+	columns[i_y].column_number = x;
+}
+
+void rotate_down(cell **card, int column, int pos)
+{
+	cell *temp = (cell *)malloc(CARD_LINES * sizeof(cell));
 	for(int i = 0; i < CARD_LINES; i++)
 		temp[(i + pos) % CARD_LINES] = card[i][column];
 	
@@ -291,7 +341,7 @@ void rotate_down(struct cell **card, int column, int pos)
 	free(temp);
 }
 
-void asc_sort(struct cell **card, int column)
+void asc_sort(cell **card, int column)
 {
 	int ok = 1;
 	while(ok)
@@ -306,7 +356,7 @@ void asc_sort(struct cell **card, int column)
 	}
 }
 
-void desc_sort(struct cell **card, int column)
+void desc_sort(cell **card, int column)
 {
 	int ok = 1;
 	while(ok)
@@ -321,7 +371,7 @@ void desc_sort(struct cell **card, int column)
 	}
 }
 
-void show_card(struct cell **card)
+void show_card(cell **card)
 {
 	for(int i = 0; i < CARD_LINES; i++)
 	{
@@ -334,9 +384,9 @@ void show_card(struct cell **card)
 	}
 }
 
-struct player check_for_winner(struct cell ***cards, int n_cards)
+player check_for_winner(cell ***cards, int n_cards)
 {
-	struct player winner;
+	player winner;
 	int score;
 	
 	winner.card_index = -1;
@@ -357,14 +407,14 @@ struct player check_for_winner(struct cell ***cards, int n_cards)
 	return winner;
 }
 
-struct cell** create_matrix(int l, int c)
+cell** create_matrix(int l, int c)
 {
-	struct cell **matrix = (struct cell **) malloc(l * sizeof(struct cell *));
+	cell **matrix = (cell **) malloc(l * sizeof(cell *));
 	if(matrix)
 	{
 		for(int i = 0; i < l; i++)
 		{
-			matrix[i] = (struct cell *) malloc(c * sizeof(struct cell));
+			matrix[i] = (cell *) malloc(c * sizeof(cell));
 			for(int j = 0; j < c; j++) matrix[i][j] = init_cell();
 		}
 	}
@@ -372,7 +422,7 @@ struct cell** create_matrix(int l, int c)
 	return matrix;
 }
 
-void free_matrix(struct cell **matrix, int l)
+void free_matrix(cell **matrix, int l)
 {
 	for(int i = 0; i < l; i++)
 		free(matrix[i]);
