@@ -13,6 +13,7 @@
 #define ASC "ASC"
 #define DSC "DSC"
 #define SHOW "SHOW"
+#define INSTRUCTION_MAX_LEN 25
 
 //an element in a bingo card
 typedef struct cell
@@ -71,7 +72,7 @@ int main()
 {
 	int n, m;
 	cell ***cards = NULL;
-	char instruction_string[25];
+	char instruction[INSTRUCTION_MAX_LEN];
 	player winner;
 
 	//initialize name-column pairs 
@@ -111,8 +112,8 @@ int main()
 
 		for(int i = 0; i < m; i++)
 		{
-			fgets(instruction_string, 25, stdin);
-			make_operation(instruction_string, cards, columns, n);
+			fgets(instruction, INSTRUCTION_MAX_LEN, stdin);
+			make_operation(instruction, cards, columns, n);
 			winner = check_for_winner(cards, n);
 
 			if(winner.score != 0)
@@ -256,7 +257,7 @@ void make_operation(char *s, cell ***cards, column_pair *columns, int n_cards)
 	//check if it is a color-cell action type
 	if(strlen(type) == 1 && strchr(BINGO, *type))
 	{
-		int number = atoi(strtok(NULL, "-"));
+		int number; sscanf(strtok(NULL, "-"), "%d", &number);
 		for(int i = 0; i < n_cards; i++) 
 			color_cell(cards[i], columns, *type, number);  
 	}
