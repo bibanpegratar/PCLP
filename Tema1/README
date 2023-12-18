@@ -1,0 +1,37 @@
+BINGO
+
+Problema consta intr- un joc de BINGO, in care se pot face operatii speciale pe cardurile de joc, pe langa colorarea unei casute aferente bilei extrase. 
+Cartile de BINGO sunt alocate dinamic, si sunt reprezentate de matrici cu elemente de tip cell, o structura ce contine valoarea dintr- o celula, si daca aceasta este colorata sau nu. 
+Jucatorii sunt reprezentati printr- o structura ce contine indexul cardului, scorul jucatorului, si adresa cardului.
+Fiecarei coloane sunt asociate perechi de tip char, ce reprezinta numele coloanei (caractere din sirul "BINGO"). Acest lucru ajuta la operatiile de SWAP a liniilor si la gasirea elementelor de pe carduri folosind perechi caracter -  numar_bila.
+
+Executarea comenzilor se face dupa citire. Acestea sunt interpretate folosind strtok, comparand cu seturile posibile de instructiuni si apeland functia aferenta. Se verifica dupa fiecare comanda executata daca exista un castigator, se afiseaza castigatorul si se termina executia programului in caz afirmativ. Intructiunile ce urmeaza dupa gasirea unui castigator nu mai sunt executate.
+
+*OPERATII
+- SWAP X-Y: Interschimba valorile coloanelor X si Y in toate cardurile. Apoi interschimba caracterele aferente coloanelor.
+- SHIFT X-Y: Permuta elementele coloanelor X din toate cardurile cu Y elemente in jos, folosind operatia modulo.
+- ASC/DESC X: Sorteaza crescator / descrescator coloanele X din toate cardurile.
+- SHOW I: Afiseaza continutul cardului jucatorului I.
+- COLORARE BILE: Se foloseste structura de tip cell pentru a identifica coloana aferenta caracterului citit.
+- VERIFICARE BINGO: Este impatita in verificare de linii, coloane si diagonale. Se aduna tot scorul de la aceste verificari.
+
+*IMPLEMENTARI
+
+BIBLIOTECA
+Organizarea unei biblioteci cu carti, care contine informatii despre ID, titlu, autor, anul publicatiei si o descirere a cartii.
+Se executa diferite operatii pe aceasta biblioteca. Biblioteca este alocata dinamic, la fel si titlul, autorul si descrierea fieacarei carti. Dimensiunea alocata pentru descrierea cartii este actualizata corespunzator in memorie dupa fiecare modifcare a acesteia.
+
+Executarea comenzilor se face dupa citire, similar cu problema precedenta. Acestea sunt interpretate folosind strtok, comparand cu seturile posibile de instructiuni si apeland functia aferenta. Se executa toate comenzile.
+
+*OPERATII
+- SEARCH ELEMENT: Cauta in biblioteca in functie de ELEMENT. Daca ELEMENT este un sir de caractere, cautarea se face dupa autor sau titlu. Daca ELEMENT este un numar intreg, cautarea se face dupa anul aparitiei.
+- REPLACE WORD1 WORD2: Inlocuieste WORD1 cu WORD2 in toate descrierile cartilor.
+- ENCODE ID: Aplica operatia de codificare cartii cu ID-ul aferent.
+- ADD_BOOK: Adauga o noua carte la finalul vectorului de carti.
+
+*IMPLEMENTARI
+- atunci cand se face citirea descrierii, nu se scoate caracterul "\n", si se adauga daca nu exista
+- am folosit fgets si sccanf pentru citire, usurand conversia din sir de caractere in numar intreg
+- toata memoria alocata dinamica este eliberata atunci cand nu mai este folosita
+- am folosit strdup, oriunde posibil pentru a usura management-ul memoriei
+- am utilizat un pointer la functie ca argument pentru functia de REPLACE, astfel putand oricand sa modific ce functie folosesc

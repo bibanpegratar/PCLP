@@ -3,12 +3,12 @@
 #include <stdlib.h>
 #include <ctype.h>
 
-//TODO: Add newline to
+//a buffer will be used to store input for each instruction
 #define BUFFER_MAX_LEN 1000
-#define TITLE_MAX_LEN 150
-#define AUTHOR_MAX_LEN 150
-#define DESCRIPTION_MAX_LEN 550
-#define INSTRUCTION_MAX_LEN 550
+#define TITLE_MAX_LEN 50
+#define AUTHOR_MAX_LEN 30
+#define DESCRIPTION_MAX_LEN 510
+#define INSTRUCTION_MAX_LEN 600
 
 typedef struct book
 {
@@ -23,9 +23,9 @@ void read_book(book *b);
 void print_book(book b);
 void delete_book(book *b);
 
-void make_operation(char *s, book **library, int *n);
+book** make_operation(char *s, book **library, int *n);
 void search(book **library, int n, char *search_string, int search_year);
-void replace_descriptions(book **library, int n, char *f, char *r, char* (*replace_fct)(char*, char*, char*));
+void replace_descriptions(book **library, int n, char *f, char *r, char *(replace_fct)(char*, char*, char*));
 char* replace(char *s, char *f, char *r);
 void encode(book **library, int n, int ID);
 book** add_book(book **library, int *n);
@@ -35,22 +35,24 @@ void swap_books(book *a, book *b);
 int strcmp_lowercase(char *a, char *b);
 int is_integer(char *s);
 void rm_newline(char *s);
-//char *int_to_string(int n);
 char *reverse_s(char *s);
 
-int main()
+int main(void)
 {
+    char buffer[BUFFER_MAX_LEN], instruction[INSTRUCTION_MAX_LEN];
     int n_books, n_operations, i = 0;
     book **library;
-    char buffer[BUFFER_MAX_LEN], instruction[INSTRUCTION_MAX_LEN];
 
     fgets(buffer, BUFFER_MAX_LEN, stdin);
     sscanf(buffer, "%d", &n_books);
 
+    //allocate memory for library and each book
     library = (book **)malloc(n_books * sizeof(book *));
+    if(library == NULL) fprintf(stderr, "ERRORSCREEN: library allocation failed-line:52\n");
     for(i = 0; i < n_books; i++)
     {
         library[i] = (book *)malloc(sizeof(book));
+        if(library == NULL) fprintf(stderr, "ERRORSCREEN: book[%d] of library allocation failed-line:56\n", i);
         read_book(library[i]);
     }
 
@@ -60,52 +62,31 @@ int main()
     for(i = 0; i < n_operations; i++)
     {
         fgets(instruction, INSTRUCTION_MAX_LEN, stdin);
-        make_operation(instruction, library, &n_books);
+        library = make_operation(instruction, library, &n_books);
     }
 
     printf("%d\n", n_books);
     for(i = 0; i < n_books; i++)
         print_book(*library[i]);
 
+    //free memory
     for(i = 0; i < n_books; i++)
         delete_book(library[i]);
-
     free(library);
+
     return 0;
 }
 
 //b should be already allocated
+//dynamic allocation used for title, author, description
 void init_book(book *b, int ID, int release_year, char *title, char *author, char *description)
 {
     b->ID = ID;
     b->release_year = release_year;
 
-    if(strlen(title) <= TITLE_MAX_LEN)
-    {
-        b->title = (char *)malloc((strlen(title) + 1) * sizeof(char));
-        b->title = strdup(title);
-    }
-
-    if(strlen(author) <= AUTHOR_MAX_LEN)
-    {
-        b->author = (char *)malloc((strlen(author) + 1) * sizeof(char));
-        b->author = strdup(author);
-    }
-    
-    if(strlen(description) <= DESCRIPTION_MAX_LEN)
-    {
-        b->description = (char *)malloc((strlen(description) + 2) * sizeof(char));
-        
-        //add newline if it doesnt exist
-        size_t strlen_desc = strlen(description);
-        if(description[strlen_desc - 1] != '\n')
-        {
-            description[strlen_desc] = '\n';
-            description[strlen_desc + 1] = '\0';
-        }
-            
-        b->description = strdup(description);
-    }
+    b->title = strdup(title);
+    b->author = strdup(author);
+    b->description = strdup(description);
 }
 
 void read_book(book *b)
@@ -113,52 +94,54 @@ void read_book(book *b)
     int ID = -1, release_year = -1;
     char buffer[BUFFER_MAX_LEN], title[TITLE_MAX_LEN], author[AUTHOR_MAX_LEN], description[DESCRIPTION_MAX_LEN];
 
+    //ID
     fgets(buffer, BUFFER_MAX_LEN, stdin);
     buffer[strcspn(buffer, "\n")] = '\0';
     sscanf(buffer, "%d", &ID);
-    
+
+    //title
     fgets(title, TITLE_MAX_LEN, stdin);
     title[strcspn(title, "\n")] = '\0';
-    
+
+    //author
     fgets(author, AUTHOR_MAX_LEN, stdin);
     author[strcspn(author, "\n")] = '\0';
 
+    //release_year
     fgets(buffer, BUFFER_MAX_LEN, stdin);
     buffer[strcspn(buffer, "\n")] = '\0';
     sscanf(buffer, "%d", &release_year);
-    
-    fgets(description, DESCRIPTION_MAX_LEN, stdin);
-    description[strcspn(description, "\n")] = '\0';
-    
-    if(ID == -1 || release_year == -1)
-    {
-        return;
-    }
 
+    //description
+    fgets(description, DESCRIPTION_MAX_LEN, stdin);
+
+    if(ID == -1 || release_year == -1) return;
     else init_book(b, ID, release_year, title, author, description);
 }
 
 book** add_book(book **library, int *n)
 {
-    *n = *n + 1;
-    book **temp_library = (book **)realloc(library, (*n) * sizeof(book *));
+    book **temp_library = (book **)realloc(library, (*n + 1) * sizeof(book *));
     
-    //if (temp_library == NULL);
-        //fprintf(stderr, "ERRORSCREEN: temp_library reallocation failed");
-    
-    //else
-    //{
+    if (temp_library == NULL)
+    {
+        fprintf(stderr, "ERRORSCREEN: temp_library reallocation failed-line:125");
+        return library;
+    }
+
+    else
+    {
         library = temp_library;
-        library[*n - 1] = (book *)malloc(sizeof(book));
-        
-        //if (library[*n - 1] == NULL)
-            //fprintf(stderr, "ERRORSCREEN: malloc for book failed");
-        
-        //else
-            read_book(library[*n - 1]);
-    //}
-    
-    return library;
+        library[*n] = (book *)malloc(sizeof(book));
+
+        if (library[*n] == NULL)
+            fprintf(stderr, "ERRORSCREEN: book[%d] of temp_library reallocation failed-line:138", *n);
+        else
+            read_book(library[*n]);
+
+        *n = *n + 1;
+        return library;
+    }
 }
 
 void print_book(book b)
@@ -178,20 +161,18 @@ void delete_book(book *b)
     free(b);
 }
 
-void make_operation(char *s, book **library, int *n)
+//parses the given 's' instruction
+book** make_operation(char *s, book **library, int *n)
 {
-    //for the last operation
-    rm_newline(s);
-    
-    char *cpy = (char *)malloc(sizeof(s));
-    cpy = strdup(s);
+    char *cpy = strdup(s);
+    rm_newline(cpy);
 
     char *type = strtok(cpy, " ");
     if(strcmp(type, "SEARCH") == 0)
     {
         char *param = strtok(NULL, "\n");
         rm_newline(param);
-        
+
         if(is_integer(param) == 1)
             search(library, *n, NULL, atoi(param));
         else
@@ -212,28 +193,34 @@ void make_operation(char *s, book **library, int *n)
     }
 
     else if(strcmp(type, "ADD_BOOK") == 0)
-    {
-        add_book(library, n);
-    }
+        library = add_book(library, n);
 
     free(cpy);
+    return library;
 
 }
 
+//search by author -> search_year = -1
+//searcb by year   -> search_string = NULL
 void search(book **library, int n, char *search_string, int search_year)
 {
     int cnt = 0, i = 0;
-    
-    //make a copy of library and sort it
+
+    //make a copy of library
     book **new_library = (book **)malloc(n * sizeof(book *));
+    if(new_library == NULL) fprintf(stderr, "ERRORSCREEN: new_library reallocation failed-line:212");
     for(i = 0; i < n; i++)
+    {
         new_library[i] = (book *)malloc(sizeof(book));
-    
+        if (new_library[i] == NULL) fprintf(stderr, "ERRORSCREEN: new_library[%d] reallocation failed-line:216", i);
+    }
+
+    //copy all elements
     for(i = 0; i < n; i++)
         init_book(new_library[i], library[i]->ID, library[i]->release_year, library[i]->title, library[i]->author, library[i]->description);
-        
+
     sort_library(new_library, n);
-    
+
     //search by string
     if(search_string != NULL)
     {
@@ -258,77 +245,100 @@ void search(book **library, int n, char *search_string, int search_year)
             }
     }
 
+    //free memory
     for(i = 0; i < n; i++)
         delete_book(new_library[i]);
     free(new_library);
-    
+
     if(cnt == 0) printf("NOT FOUND\n\n");
 }
 
 //replace all occurences of f with r in all books' descriptions
-void replace_descriptions(book **library, int n, char *f, char *r, char* (*replace_fct)(char*, char*, char*))
+void replace_descriptions(book **library, int n, char *f, char *r, char *(replace_fct)(char *, char*, char*))
 {
     int i = 0;
     for(i = 0; i < n; i++)
         library[i]->description = (*replace_fct)(library[i]->description, f, r);
 }
 
-char *replace(char *s, char *s1, char *s2) 
+//replaces all occurences of s1 in s with s2
+//retuns a dynamically allocated string, frees the old string
+char *replace(char *s, char *s1, char *s2)
 {
-    int diff_size = (strlen(s2) - strlen(s1)) * sizeof(char);
+    unsigned long diff_size = (strlen(s2) - strlen(s1)) * sizeof(char);
     size_t init_size = (strlen(s) + 1) * sizeof(char);
     size_t new_s_size = 0;
+
+    char *new_s = NULL;
     
-    char *new_s = NULL, *cpy_s = NULL;
+    //used for freeing memory held by s
+    char *init_s = s;
     char *t = NULL, *p = NULL;
     int cnt = 0;
-    
-    cpy_s = (char *)malloc(strlen(s) * sizeof(char));
-    cpy_s = strdup(s);
-    
-    //count occurences
-    t = strstr(cpy_s, s1);
+
+    //count occurences of s1 in cpy_s
+    t = strstr(s, s1);
     while(t)
     {
         cnt++;
         t = strstr(t + strlen(s1), s1);
     }
-    
+
     if(cnt > 0)
     {
+        //diiference in size between old and new string
         diff_size *= cnt;
-        new_s = (char *)malloc(init_size + diff_size + 1);
-        p = strtok(cpy_s, " \n");
+        new_s = (char *)malloc((init_size + diff_size + 2) * sizeof(char));
+        if(new_s == NULL) fprintf(stderr, "ERRORSCREEN: new_s reallocation failed-line:290");
+        new_s[0] = '\0';
+
+        p = strtok(s, " \n");
         while(p)
         {
             if(strcmp(p, s1) == 0) strcat(new_s, s2);
             else strcat(new_s, p);
+
+            //words are separated by space
             strcat(new_s, " ");
             p = strtok(NULL, " \n");
         }
+
+        //reached end of word, add newline and terminator
         new_s_size = strlen(new_s);
         new_s[new_s_size - 1] = '\n';
         new_s[new_s_size] = '\0';
+
+        //free old string
+        free(init_s);
         return new_s;
     }
-    
+
     return s;
 }
 
+//modify each book's description:
+//  - replace the string of consecutive occurences with: size of sequence + character
+//  - size of sequence is converted in hex (capital letters)
+//  - reverse the string
 void encode(book **library, int n, int ID)
 {
-    int i = 0, k = 0, cnt = 0;
+    int i = 0, cnt = 0;
     size_t curr_size = 0;
     char *new_desc = NULL, *new_desc_cpy = NULL;
-    char *p = NULL, cnt_string[5], char_to_string[2];
-    
+    char *p = NULL, cnt_string[5] = "", char_to_string[2] = "", *init_p;
+
+    new_desc = (char *)malloc(1 * sizeof(char));
+    if(new_desc == NULL) fprintf(stderr, "ERRORSCREEN: new_desc reallocation failed-line:327");
+    new_desc[0] = '\0';
+
     for(i = 0; i < n; i++)
     {
+        //search by ID
         if(library[i]->ID == ID)
         {
-            p = (char *)malloc(strlen(library[i]->description) * sizeof(char));
+            //copy descritpion to p
             p = strdup(library[i]->description);
-            
+            init_p = p;
             while(*p != '\0')
             {
                 cnt = 0;
@@ -339,47 +349,51 @@ void encode(book **library, int n, int ID)
                     while(*p == *(p + 1))
                     {
                         cnt++;
-                        p += 1;
+                        p = p + 1;
                     }
                 }
-                
+
+                //convert size of sequence to hex
                 sprintf(cnt_string, "%X", cnt);
-                
-                //make character a string
+
+                //convert character to string
                 char_to_string[0] = *p;
                 char_to_string[1] = '\0';
-                
-                //calculate size for new characters
-                curr_size += (strlen(cnt_string) + strlen(char_to_string)) * sizeof(char);
+
+                //calculate extra size for new characters
+                curr_size += (strlen(cnt_string) + strlen(char_to_string) + 1) * sizeof(char);
                 new_desc_cpy = (char *)realloc(new_desc, curr_size);
-                
-                if(new_desc_cpy) new_desc = new_desc_cpy;
-                //else fprintf(stderr, "error reallocating in encode:new_desc");
-                
-                strcat(new_desc, char_to_string);
-                if(cnt > 0) strcat(new_desc, cnt_string);
-                p = p + 1;
+                if(new_desc_cpy == NULL) fprintf(stderr, "ERRORSCREEN: new_desc_cpy reallocation failed-line:363");
+
+                if(new_desc_cpy != NULL)
+                {
+                    new_desc = new_desc_cpy;
+                    strcat(new_desc, char_to_string);
+                    if(cnt > 0) strcat(new_desc, cnt_string);
+                }
+                 p = p + 1;
             }
-                
+
             //reached end of the string
             if(*p == '\0')
             {
-                if(*(p-1) != '\n') strcat(new_desc, "\n");
-                free(library[i]->description);
+                rm_newline(new_desc);
                 new_desc = reverse_s(new_desc);
-                library[i]->description = new_desc;
-                return;
+                free(library[i]->description);
+                free(init_p);
+                library[i]->description = strdup(new_desc);
             }
         }
     }
-    //if(i == n) fprintf(stderr, "encode: ID not found\n");
+    free(new_desc);
 }
 
+//sorts library by ID
 void sort_library(book **library, int n)
 {
-    int i = 0;
+    int i = 0, j = 0;
     for(i = 0; i < n; i++)
-        for(int j = i + 1; j < n; j++)
+        for(j = i + 1; j < n; j++)
             if(library[i]->ID > library[j]->ID)
                 swap_books(library[i], library[j]);
 }
@@ -391,6 +405,7 @@ void swap_books(book *a, book *b)
     *b = t;
 }
 
+//case-insensitive strcmp
 int strcmp_lowercase(char *a, char *b)
 {
     unsigned int i = 0;
@@ -417,6 +432,7 @@ int is_integer(char *s)
     return 0;
 }
 
+//removes newline from end of string
 void rm_newline(char *s)
 {
     size_t length = strlen(s);
@@ -426,49 +442,24 @@ void rm_newline(char *s)
     }
 }
 
-//free s after usage
-//char *int_to_string(int n)
-//{
-//    int cpy = n, cnt = 0, i = 0;
-//    char *s = NULL;
-//    
-//    while(n)
-//    {
-//        cnt++;
-//        n /= 10;
-//    }
-//    
-//    i = cnt - 1;
-//    n = cpy;
-//    s = (char *)malloc((cnt + 1) * sizeof(int));
-//    
-//    s[cnt - 1] = '\0';
-//    while(n)
-//    {
-//        s[i] = (n % 10) + '0';
-//        n /= 10;
-//        i--;
-//    }
-//    return s;
-//}
-
+//s should by dynamically allocated
+//returns dynamically allocated string
 char *reverse_s(char *s)
 {
     size_t i = 0;
-    char *cpy = (char *)malloc(strlen(s) * sizeof(char));
-    
-    for(i = 0; i < strlen(s) - 1; i++)
-        cpy[strlen(s) - i - 2] = s[i];
-    
+    char *cpy = (char *)malloc((strlen(s) + 2) * sizeof(char));
+    if(cpy == NULL) fprintf(stderr, "ERRORSCREEN: cpy reallocation failed-line:446");
+
+    cpy[strlen(s) + 1] = '\0';
+
+    for(i = 0; i < strlen(s); i++)
+        cpy[strlen(s) - i - 1] = s[i];
+
     //put newline from s to end of cpy
-    if(s[strlen(s) - 1] == '\n')
-        cpy[strlen(s) - 1] = '\n';
-    
-    //put last char of s to first char of cpy
-    else cpy[0] = s[strlen(s) - 1];
-    
+    if(s[strlen(s) - 1] != '\n')
+        cpy[strlen(s)] = '\n';
+
+    //free old memory
     free(s);
-    s = cpy;
     return cpy;
 }
-
