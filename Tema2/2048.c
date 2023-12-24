@@ -7,6 +7,8 @@
 #define MENU_CHOICES 3
 #define MENU_CHOICES_PADDING 2
 #define MENU_CHOICES_TOP_OFFSET 10
+#define GAME_PADDING_HEIGHT 4 //in columns
+#define GAME_PADDING_WIDTH 0
 
 WINDOW *init_window(int y_max, int x_max, int window_padding_height, int window_padding_width);
 void operate_menu(WINDOW *menu);
@@ -37,24 +39,47 @@ int main(int argc, char **argv)
     getmaxyx(stdscr, y_max, x_max);
     WINDOW *menu = init_window(y_max, x_max, MENU_PADDING_HEIGHT, MENU_PADDING_WIDTH);
     operate_menu(menu);
-    endwin(); // End the curses library
+    endwin();
     return 0;
 }
 
 WINDOW *init_window(int y_max, int x_max, int window_padding_height, int window_padding_width)
 {
     /* Menu window initialization*/
-    int menu_height, menu_width, menu_start_y, menu_start_x;
-    menu_height = y_max - (window_padding_height * y_max) / 100;
-    menu_width = x_max - (window_padding_width * x_max) / 100;
-    menu_start_y = (y_max - menu_height) / 2;
-    menu_start_x = (x_max - menu_width) / 2;
+    int window_height, window_width, window_start_y, window_start_x;
+    window_height = y_max - (window_padding_height * y_max) / 100;
+    window_width = x_max - (window_padding_width * x_max) / 100;
+    window_start_y = (y_max - window_height) / 2;
+    window_start_x = (x_max - window_width) / 2;
 
-    WINDOW  *menu = newwin(menu_height, menu_width, menu_start_y, menu_start_x);
-    refresh();
-    box(menu, (int)' ' ,0);
-    wrefresh(menu);
-    return menu;
+    WINDOW  *win = newwin(window_height, window_width, window_start_y, window_start_x);
+    return win;
+}
+
+WINDOW* init_square_window(int y_max, int x_max, int window_padding_height, int window_padding_width)
+{
+    /* Menu window initialization*/
+    int window_l, window_padding;
+    if(y_max < x_max)
+    {
+        window_padding = window_padding_height;
+        y_max /= 4;
+        y_max *= 4;
+        window_l = y_max ;
+    }
+    else 
+    {
+        window_padding = window_padding_width;
+        window_l = x_max - ((x_max - 5) % 4);
+    }
+    
+    int window_height, window_width, window_start_y, window_start_x;
+    window_l = window_l - 2 * window_padding;
+    window_start_y = (y_max - window_l) / 2;
+    window_start_x = (x_max - window_l * 2) / 2;
+
+    WINDOW  *win = newwin(window_l + 1, window_l * 2 + 1, window_start_y, window_start_x);
+    return win;
 }
 
 void operate_menu(WINDOW *menu)
@@ -84,12 +109,14 @@ void operate_menu(WINDOW *menu)
 
     int ch = 0, highlight = 0, choice_height, current_choice_height;
     int y_max, x_max;
-    getmaxyx(menu, y_max, x_max);
-    choice_height = (y_max - 2 - MENU_CHOICES_PADDING * (MENU_CHOICES - 1)) / (MENU_CHOICES - 1);
     keypad(menu, 1);
 
     while(1)
     {
+        getmaxyx(menu, y_max, x_max);
+        choice_height = (y_max - 2 - MENU_CHOICES_PADDING * (MENU_CHOICES - 1)) / (MENU_CHOICES - 1);
+        keypad(menu, 1);
+    
         /* print intro_text on menu*/
         wattron(menu, A_BOLD);
         wattron(menu, COLOR_PAIR(1));
@@ -133,11 +160,32 @@ void operate_menu(WINDOW *menu)
                 wrefresh(menu);
                 refresh();
                 choices[highlight].fct();
+                wclear(menu);
+                wrefresh(menu);
+                refresh();
+                getmaxyx(stdscr, y_max, x_max);
+                menu = init_window(y_max, x_max, MENU_PADDING_HEIGHT, MENU_PADDING_WIDTH);
+                choice_height = (y_max - 2 - MENU_CHOICES_PADDING * (MENU_CHOICES - 1)) / (MENU_CHOICES - 1);
+                touchwin(menu);
+                box(menu, (int)' ' ,0);
+                refresh();
                 break;
             
             case (int)'Q':
             case (int)'q':
                 return;
+                break;
+
+            case KEY_RESIZE:
+                wclear(menu);
+                wrefresh(menu);
+                refresh();
+                getmaxyx(stdscr, y_max, x_max);
+                menu = init_window(y_max, x_max, MENU_PADDING_HEIGHT, MENU_PADDING_WIDTH);
+                choice_height = (y_max - 2 - MENU_CHOICES_PADDING * (MENU_CHOICES - 1)) / (MENU_CHOICES - 1);
+                touchwin(menu);
+                box(menu, (int)' ' ,0);
+                refresh();
                 break;
 
             default:
@@ -150,8 +198,6 @@ void operate_menu(WINDOW *menu)
         if(!is_wintouched(menu))
         {
             touchwin(menu);
-            box(menu, (int)' ' ,0);
-            refresh();
         }
     }
 }
@@ -167,41 +213,58 @@ void start_game()
 {
     int y_max, x_max, game_y_max, game_x_max;
     getmaxyx(stdscr, y_max, x_max);
-    WINDOW *game = init_window(y_max, x_max, 30, 30);
+
+    WINDOW *game = init_square_window(y_max, x_max, GAME_PADDING_HEIGHT, GAME_PADDING_HEIGHT);
     getmaxyx(game, game_y_max, game_x_max);
     touchwin(game);
-    refresh();
     box(game, 0 ,0);
-
-    for(int i = 1; i <= 3; i++)
-    {
-        wmove(game, i * ((game_y_max + 1) / 4) , 1);
-        whline(game, ACS_HLINE, game_x_max - 2);
-    }
-
-    for(int i = 1; i <= 3; i++)
-    {
-        wmove(game, 1, i * (game_x_max + 1) / 4);
-        wvline(game, ACS_VLINE, game_y_max - 2);
-    }
-    wrefresh(game);
-
+    refresh();
+    
     int ch;
 
     while(1)
     {
-        ch = wgetch(game);
+        keypad(game, 1);
+        for(int i = 1; i <= 3; i++)
+        {
+            wmove(game, i * game_y_max / 4 , 1);
+            whline(game, ACS_HLINE, game_x_max - 2);
+            wprintw(game, "%d", i * game_y_max / 4);
+        }
 
+        for(int i = 1; i <= 3; i++)
+        {
+            wmove(game, 1, i * game_x_max / 4);
+            wvline(game, ACS_VLINE, game_y_max - 2);
+        }
+
+        wmove(game, game_y_max - 1, 1);
+        wprintw(game, "%d", game_y_max);
+        wrefresh(game);
+
+        // mvwprintw(game, 0, 0, "Window dimension(y): %d", game_y_max);
+        // mvwprintw(game, 1, 0, "Window dimension(x): %d", game_x_max);
+        ch = wgetch(game);
 
         if(ch == (int)'q' || ch == (int)'Q') 
         {
             untouchwin(game);
+            wclear(game);
+            refresh();
             return;
+        }
+
+        else if(ch == KEY_RESIZE)
+        {
+            wclear(game);
+            wrefresh(game);
+            refresh();
+            getmaxyx(stdscr, y_max, x_max);
+            game = init_square_window(y_max, x_max, GAME_PADDING_HEIGHT, GAME_PADDING_HEIGHT);
+            getmaxyx(game, game_y_max, game_x_max);
+            touchwin(game);
+            box(game, 0 ,0);
+            refresh();
         }
     }
 }
-
-
-
-
-
