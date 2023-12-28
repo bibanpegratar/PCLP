@@ -266,6 +266,9 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int (
                 /* call function according to highlighted option */
                 make_menu_action(choices, highlight, game_board, cells, score, has_resume);
 
+                /* resume is highlighted when refocusing pause menu */
+                if(highlight == 0) highlight++;
+
                 /* resize window after funxtion exists */
                 wclear(menu);
                 wrefresh(menu);
