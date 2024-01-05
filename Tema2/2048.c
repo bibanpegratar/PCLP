@@ -4,16 +4,15 @@
 #include <math.h>
 #include <time.h>
 
-#define MENU_PADDING_HEIGHT 5 /* % top and bottom padding */
-#define MENU_PADDING_WIDTH 5  /* % left and right padding */
+#define MENU_PADDING_HEIGHT 5
+#define MENU_PADDING_WIDTH 5
 #define MENU_CHOICES 3
 #define MENU_CHOICES_PADDING 2
 #define MENU_CHOICES_TOP_OFFSET 10
-#define GAME_PADDING_HEIGHT 4 //in columns(dont change)
+#define GAME_PADDING_HEIGHT 4  
 #define GAME_PADDING_WIDTH 0
 #define AI_DEPTH 12
-
-#define TIMEOUT_MS 2000 // 1000 milliseconds = 1 second
+#define TIMEOUT_MS 2000
 
 typedef struct
 {
@@ -30,52 +29,55 @@ void make_menu_action(char choices[][9], int highlight, int (*game_board)[4], ce
 void generate_random(int (*game_board)[4]);
 int is_game_board_full(int (*game_board)[4]);
 int is_move_available(int (*game_board)[4], int score);
+int is_2048(int (*game_board)[4]);
 
 void move_up(int (*game_board)[4], int *score);
 void move_left(int (*game_board)[4], int *score);
 void move_down(int (*game_board)[4], int *score);
-void move_right(int (*game_board)[4], int *score);
+void move_right(int (*game_board)[4], int *score);  
 int make_best_move(int (*game_board)[4], int *score, int depth);
 int max_num(int a, int b, int c, int d);
 
-// Define custom color attributes for each value
+//custom colors for each cell value
 void define_custom_colors() {
-    init_color(8, 0, 200, 300);         // Black background
-    init_color(9, 900, 850, 800);   // Light gray background
-    init_color(10, 500, 500, 500);   // Darker gray background (adjusted intensities)
-    init_color(11, 990, 600, 300);   // Orange background
-    init_color(12, 990, 500, 300);  // Darker orange background
-    init_color(13, 990, 400, 300);  // Even darker orange background
-    init_color(14, 990, 300, 300);  // Red background
-    init_color(15, 990, 200, 300); // Dark red background
-    init_color(16, 990, 100, 300); // Purple background
-    init_color(17, 900, 0, 300);   // Dark purple background
-    init_color(18, 770, 0, 300);  // Magenta background
-    init_color(19, 600, 0, 300);  // Dark magenta background
+    init_color(8, 0, 200, 300);    // black
+    init_color(9, 900, 850, 800);  // light gray
+    init_color(10, 500, 500, 500); // darker gray
+    init_color(11, 990, 600, 300); // orange
+    init_color(12, 990, 500, 300); // darker orange
+    init_color(13, 990, 400, 300); // more darker orange
+    init_color(14, 990, 300, 300); // red
+    init_color(15, 990, 200, 300); // dark red
+    init_color(16, 990, 100, 300); // purple
+    init_color(17, 900, 0, 300);   // dark purple
+    init_color(18, 770, 0, 300);   // magenta
+    init_color(19, 600, 0, 300);   // dark magenta
 }
 
 int main(int argc, char **argv)
 {
-    initscr();
-    cbreak();
-    curs_set(0);
-    raw();
-    noecho();
-    
-    start_color();
+    initscr();   
+    cbreak();      //no buffer when reading input
+    curs_set(0);   //disable cursor
+    //raw();       //similar to cbreak
+    noecho();      //do not display characters that are read
+    start_color(); //enable terminal colors
+
     define_custom_colors();
-    init_pair(1, COLOR_WHITE, COLOR_BLACK);  // Empty cell
-    init_pair(2, COLOR_WHITE, 8);        // Value 2
-    init_pair(3, COLOR_BLACK, 9);           // Value 4
-    init_pair(4, COLOR_BLACK, 10);           // Value 8
-    init_pair(5, COLOR_BLACK, 11);          // Value 16
-    init_pair(6, COLOR_BLACK, 12);          // Value 32
-    init_pair(7, COLOR_BLACK, 13);          // Value 64
-    init_pair(8, COLOR_BLACK, 14);         // Value 128
-    init_pair(9, COLOR_BLACK, 15);         // Value 256
-    init_pair(10, COLOR_BLACK, 16);         // Value 512
-    init_pair(11, COLOR_BLACK, 17);       // Value 1024
-    init_pair(12, COLOR_BLACK, 18);       // Value 2048
+    
+    //initialize color pairs for each type of cell in game
+    init_pair(1, COLOR_WHITE, COLOR_BLACK);  // empty cell
+    init_pair(2, COLOR_WHITE, 8);            // 2
+    init_pair(3, COLOR_BLACK, 9);            // 4
+    init_pair(4, COLOR_BLACK, 10);           // 8
+    init_pair(5, COLOR_BLACK, 11);           // 16
+    init_pair(6, COLOR_BLACK, 12);           // 32
+    init_pair(7, COLOR_BLACK, 13);           // 64
+    init_pair(8, COLOR_BLACK, 14);           // 128
+    init_pair(9, COLOR_BLACK, 15);           // 256
+    init_pair(10, COLOR_BLACK, 16);          // 512
+    init_pair(11, COLOR_BLACK, 17);          // 1024
+    init_pair(12, COLOR_BLACK, 18);          // 2048
 
     cell_color_pair cells[12] = 
     {
@@ -113,6 +115,7 @@ int main(int argc, char **argv)
         [11].color_pair_id = 12
     };
 
+    //main menu options
     char choices[MENU_CHOICES][9]=
     {
         "NEW GAME",
@@ -120,6 +123,7 @@ int main(int argc, char **argv)
         "QUIT    ",
     };
 
+    //main menu display text
     char intro_text[7][24] =
     {
         [0] = " 222   000      4  888 ",
@@ -137,12 +141,15 @@ int main(int argc, char **argv)
 
     int y_max, x_max;
     getmaxyx(stdscr, y_max, x_max);
+
+    //create menu window
     WINDOW *menu = init_window(y_max, x_max, MENU_PADDING_HEIGHT, MENU_PADDING_WIDTH);
     operate_menu(menu, choices, intro_text, game_board, cells, &score, &has_resume);
     endwin();
     return 0;
 }
 
+//initialize a centered window with padding
 WINDOW *init_window(int y_max, int x_max, int window_padding_height, int window_padding_width)
 {
     /* Menu window initialization*/
@@ -156,9 +163,9 @@ WINDOW *init_window(int y_max, int x_max, int window_padding_height, int window_
     return win;
 }
 
+//initialize a squared centered window with padding
 WINDOW* init_square_window(int y_max, int x_max, int window_padding_height, int window_padding_width)
 {
-    /* Menu window initialization*/
     int window_l, window_padding;
     if(y_max < x_max)
     {
@@ -182,6 +189,7 @@ WINDOW* init_square_window(int y_max, int x_max, int window_padding_height, int 
     return win;
 }
 
+//menu screen functionality
 void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int (*game_board)[4], cell_color_pair cells[12], int *score, int *has_resume)
 {
     int ch = 0, highlight = 0, choice_height, current_choice_height;
@@ -191,11 +199,14 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int (
     while(1)
     {
         getmaxyx(menu, y_max, x_max);
+
+        //positions of menu items, relative to padidng
         choice_height = (y_max - 2 - MENU_CHOICES_PADDING * (MENU_CHOICES - 1)) / (MENU_CHOICES - 1);
-        keypad(menu, 1);
-        box(menu, (int)' ' ,0);
+
+        keypad(menu, 1); //use special keys
+        box(menu, (int)' ' ,0); 
     
-        /* print intro_text on menu*/
+        //print intro text on upper side of menu
         wattron(menu, A_BOLD);
         wattron(menu, COLOR_PAIR(1));
         for(int i = 0; i < 7; i++)
@@ -203,12 +214,14 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int (
         wattroff(menu, A_BOLD);
         wattroff(menu, COLOR_PAIR(1));
 
+
         if(!*has_resume)
         {
-            /* print choices of menu*/
+            //print choices of menu, highlight selected one (without resume)
             current_choice_height = choice_height - 1;
             for(int i = 0; i < MENU_CHOICES; i++)
             {
+                //RESUME option is 2nd
                 if(i != 1)
                 {
                     if(i == highlight)
@@ -222,7 +235,7 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int (
 
         else
         {
-            /* print choices of menu*/
+            //print choices of menu (with resume)
             current_choice_height = choice_height;
             for(int i = 0; i < MENU_CHOICES; i++)
             {
@@ -234,12 +247,12 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int (
             }
         }
         
-        /* move inside menu (arrow keys / WS, ENTER to Select)*/
+        //move inside menu (arrow keys / WS, ENTER to Select)
         ch = wgetch(menu);
 
         switch(ch)
         {
-            /* move up */
+            //move up
             case KEY_UP:
             case (int)'W':
             case (int)'w':
@@ -247,7 +260,7 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int (
                 else highlight--;
                 break;
             
-            /* move down */
+            //move down
             case KEY_DOWN:
             case (int)'S':
             case (int)'s':
@@ -255,21 +268,21 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int (
                 else highlight++;
                 break;
 
-            /* choose option*/
+            //choose option
             case 10:
-                /* unfocus menu */
+                // unfocus menu
                 untouchwin(menu);
                 wclear(menu);
                 wrefresh(menu);
                 refresh();
 
-                /* call function according to highlighted option */
+                // call function according to highlighted option
                 make_menu_action(choices, highlight, game_board, cells, score, has_resume);
 
-                /* resume is highlighted when refocusing pause menu */
+                // resume is highlighted when refocusing pause menu
                 if(highlight == 0) highlight++;
 
-                /* resize window after funxtion exists */
+                // resize window after funxtion exists
                 wclear(menu);
                 wrefresh(menu);
                 refresh();
@@ -282,12 +295,12 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int (
 
                 break;
             
-            case (int)'Q':
-            case (int)'q':
-                return;
-                break;
+            // case (int)'Q':
+            // case (int)'q':
+            //     return;
+            //     break;
 
-            /* resize window */
+            //resize window when window size is changed
             case KEY_RESIZE:
                 wclear(menu);
                 wrefresh(menu);
@@ -304,12 +317,20 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int (
                 break;
         }
 
-        if(highlight < 0) {highlight = 0; beep();}
-        if(highlight > MENU_CHOICES - 1) {highlight = MENU_CHOICES - 1; beep();}
-        if(!is_wintouched(menu))
+        if(highlight < 0) 
         {
-            touchwin(menu);
+            highlight = 0;
+            beep();
         }
+
+        if(highlight > MENU_CHOICES - 1) 
+        {
+            highlight = MENU_CHOICES - 1;
+            beep();
+        }
+
+        if(!is_wintouched(menu))
+            touchwin(menu);
     }
 }
 
@@ -319,6 +340,7 @@ void quit_game()
     exit(0);
 }
 
+//game loop logic
 void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, int *score, int *has_resume)
 {
     int y_max, x_max, game_y_max, game_x_max, col_pair_no, end_screen_y_max, end_screen_x_max;
@@ -353,7 +375,7 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
         keypad(game, 1);
         wrefresh(game);
         
-        //draw horizontal lines
+        //draw horizontal lines for board
         for(int i = 1; i <= 3; i++)
         {
             wmove(game, i * game_y_max / 4 , 1);
@@ -361,7 +383,7 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
             // wprintw(game, "%d", i * game_y_max / 4);
         }
 
-        //draw vertical lines
+        //draw vertical lines for board
         for(int i = 1; i <= 3; i++)
         {
             wmove(game, 1, i * game_x_max / 4);
@@ -371,14 +393,14 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
         // wmove(game, game_y_max - 1, 1);
         // wprintw(game, "%d", game_y_max);
 
-        /* print elements of board */
+        //print cells of board
         for(int i = 0; i < 4; i++)
         {
             for(int j = 0; j < 4; j++)
             {
                 if(game_board[i][j] != 0)
                 {
-                    /* color each cell accordingly */
+                    //color each cell accordingly
                     for(int k = i * game_y_max / 4 + 1; k < (i + 1) * game_y_max / 4; k++)
                         for(int l = j * game_x_max / 4 + 1; l < (j + 1) * game_x_max / 4; l++)
                         {
@@ -394,7 +416,10 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
                         
                     char dgt[5];
                     sprintf(dgt, "%d", game_board[i][i]);
+
+                    //try to center number in cell
                     wmove(game, i * game_y_max / 4 + game_y_max / 8, j * game_x_max / 4 + game_x_max / 8 - (strlen(dgt) / 2));
+
                     wprintw(game, "%d", game_board[i][j]);
                     wattroff(game, COLOR_PAIR(col_pair_no));
                 }
@@ -414,22 +439,28 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
                 } 
             }
         }
+        //print current time
         mytime = time(NULL);
         time_str = localtime(&mytime);
         mvwprintw(game, game_y_max - 1, 2, "Time: %d:%d:%d", time_str->tm_hour, time_str->tm_min, time_str->tm_sec);
         wrefresh(game);
         refresh();
+
+        //print current score
         mvwprintw(game, game_y_max - 1, game_x_max - 1 - 15, "Score: %d", *score);
         wrefresh(game);
         refresh();
+
+        //movement legend
+        mvwprintw(game, 0, 1, "Move - WASD, Pause menu - Q");
         
         // mvwprintw(game, 1, 0, "Window dimension(x): %d", game_x_max);
         ch = wgetch(game);
 
-
+        //if no character recieved after TIMEOUT_MS, make move automatically
         if(ch == ERR)
         {
-            mvwprintw(game, 0, game_x_max / 2 - 5, "MOVING...");
+            mvwprintw(game, 0, game_x_max - 11, "MOVING...");
             wrefresh(game);
             refresh();
 
@@ -438,10 +469,11 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
             refresh();
             
             box(game, 0, 0);
-            mvwprintw(game, 0, game_x_max / 2 - 2, "DONE");
+            mvwprintw(game, 0, game_x_max - 6, "DONE");
             wrefresh(game);
             refresh();
 
+            //make random move
             generate_random(game_board);
             //qnapms(250);
 
@@ -456,6 +488,7 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
             box(game, 0, 0);
             switch (ch)
             {
+                //quit game
                 case (int)'q':
                 case (int)'Q':
                     untouchwin(game);
@@ -464,42 +497,47 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
                     return;
                     break;
 
+                //move up
                 case (int)'w':
                 case (int)'W':
                     move_up(game_board, score);
                     generate_random(game_board);
                     wrefresh(game);
-                    mvwprintw(game, 0, game_x_max / 2 - 1, "UP");
+                    mvwprintw(game, 0, game_x_max - 3, "UP");
                     refresh();
                     break;
 
+                //move left
                 case (int)'a':
                 case (int)'A':
                     move_left(game_board, score);
                     generate_random(game_board);
                     wrefresh(game);
-                    mvwprintw(game, 0, game_x_max / 2 - 3, "LEFT");
+                    mvwprintw(game, 0, game_x_max - 5, "LEFT");
                     refresh();
                     break;
 
+                //move down
                 case (int)'s':
                 case (int)'S':
                     move_down(game_board, score);
                     generate_random(game_board);
                     wrefresh(game);
-                    mvwprintw(game, 0, game_x_max / 2 - 2, "DOWN");
+                    mvwprintw(game, 0, game_x_max - 5, "DOWN");
                     refresh();
                     break;
 
+                //move right
                 case (int)'d':
                 case (int)'D':
                     move_right(game_board, score);
                     generate_random(game_board);
                     wrefresh(game);
-                    mvwprintw(game, 0, game_x_max / 2 - 3, "RIGHT");
+                    mvwprintw(game, 0, game_x_max - 6, "RIGHT");
                     refresh();
                     break;
 
+                //resize window when window size is changed
                 case KEY_RESIZE:
                     wclear(game);
                     wrefresh(game);
@@ -517,22 +555,27 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
             }
         }
 
-        if(!is_move_available(game_board, *score))
+        //game has ended
+        if(!is_move_available(game_board, *score) && !is_2048(game_board))
         {
             untouchwin(game);
             wclear(game);
             refresh();
             *has_resume = 0;
 
+            //initialize end screen
             WINDOW *end_screen = init_square_window(y_max, x_max, GAME_PADDING_HEIGHT, GAME_PADDING_HEIGHT);
             getmaxyx(end_screen, end_screen_y_max, end_screen_x_max);
             touchwin(end_screen);
             box(end_screen, 0 ,0);
+
+            //print score
             mvwprintw(end_screen, end_screen_y_max / 2, end_screen_x_max / 2, "FINAL SCORE: %d", *score);
             beep();
             wrefresh(end_screen);
             refresh();
 
+            //wait before letting user press key to exit
             napms(2500);
             mvwprintw(end_screen, end_screen_y_max / 2 + 1, end_screen_x_max / 2, "Press any key to exit");
             wrefresh(end_screen);
@@ -570,6 +613,7 @@ void make_menu_action(char choices[][9], int highlight, int (*game_board)[4], ce
     }
 }
 
+//checks if score changes after a move, if not, game is over
 int is_move_available(int (*game_board)[4], int score)
 {
     int new_score = score;
@@ -595,6 +639,15 @@ int is_move_available(int (*game_board)[4], int score)
         return 0;
     }
     else return 1;
+}
+
+int is_2048(int (*game_board)[4])
+{
+    for(int i = 0; i < 4; i++)
+        for(int j = 0; j < 4; j++)
+            if(game_board[i][i] == 2048)
+                return 1;
+    return 0;
 }
 
 void move_up(int (*game_board)[4], int *score)
@@ -709,6 +762,8 @@ void move_right(int (*game_board)[4], int *score)
     }
 }
 
+
+//generate a 2 or 4 randomly on the board
 void generate_random(int (*game_board)[4])
 {
     int i, j, value = 0;
@@ -741,6 +796,8 @@ int is_game_board_full(int (*game_board)[4])
     return 1;
 }
 
+
+//recursive algorithm that checks for move that gives best score
 int make_best_move(int (*game_board)[4], int *score, int depth)
 {
     if (!is_move_available(game_board, *score) || depth <= 0)
@@ -749,7 +806,7 @@ int make_best_move(int (*game_board)[4], int *score, int depth)
     int max_score = -1;
     int best_move = -1;
 
-    // Try moving in each direction and evaluate the resulting score
+    //move in each direction and evaluate the resulting score
     for (int move = 0; move < 4; move++)
     {
         int temp_board[4][4];
@@ -775,7 +832,7 @@ int make_best_move(int (*game_board)[4], int *score, int depth)
                 break;
         }
 
-        // Evaluate the move and update the best move if needed
+        //evaluate the move and update the best move if needed
         int move_score = temp_score + make_best_move(temp_board, &temp_score, depth - 1);
         if (max_score < move_score)
         {
@@ -784,7 +841,7 @@ int make_best_move(int (*game_board)[4], int *score, int depth)
         }
     }
 
-    // Apply the best move
+    //make best move on main game board
     switch(best_move)
     {
         case 0:
@@ -806,7 +863,6 @@ int make_best_move(int (*game_board)[4], int *score, int depth)
 
     return max_score;
 }
-
 
 int max_num(int a, int b, int c, int d)
 {
