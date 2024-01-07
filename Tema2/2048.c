@@ -9,7 +9,7 @@
 #define MENU_CHOICES 3
 #define MENU_CHOICES_PADDING 2
 #define MENU_CHOICES_TOP_OFFSET 10
-#define GAME_PADDING_HEIGHT 4  
+#define GAME_PADDING_HEIGHT 4
 #define GAME_PADDING_WIDTH 0
 #define AI_DEPTH 12
 #define TIMEOUT_MS 2000
@@ -31,10 +31,10 @@ int is_game_board_full(int (*game_board)[4]);
 int is_move_available(int (*game_board)[4], int score);
 int is_2048(int (*game_board)[4]);
 
-void move_up(int (*game_board)[4], int *score);
-void move_left(int (*game_board)[4], int *score);
-void move_down(int (*game_board)[4], int *score);
-void move_right(int (*game_board)[4], int *score);  
+int move_up(int (*game_board)[4], int *score);
+int move_left(int (*game_board)[4], int *score);
+int move_down(int (*game_board)[4], int *score);
+int move_right(int (*game_board)[4], int *score);  
 int make_best_move(int (*game_board)[4], int *score, int depth);
 int max_num(int a, int b, int c, int d);
 
@@ -180,7 +180,7 @@ WINDOW* init_square_window(int y_max, int x_max, int window_padding_height, int 
         window_l = x_max - ((x_max - 5) % 4);
     }
     
-    int window_height, window_width, window_start_y, window_start_x;
+    int window_start_y, window_start_x;
     window_l = window_l - 2 * window_padding;
     window_start_y = (y_max - window_l) / 2;
     window_start_x = (x_max - window_l * 2) / 2;
@@ -346,8 +346,7 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
     int y_max, x_max, game_y_max, game_x_max, col_pair_no, end_screen_y_max, end_screen_x_max;
     time_t mytime = time(NULL);
     struct tm * time_str = localtime(&mytime);
-    int timeout_cnt = 0;
-    int ch, prev_ch;
+    int ch;
 
     getmaxyx(stdscr, y_max, x_max);
     WINDOW *game = init_square_window(y_max, x_max, GAME_PADDING_HEIGHT, GAME_PADDING_HEIGHT);
@@ -500,8 +499,8 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
                 //move up
                 case (int)'w':
                 case (int)'W':
-                    move_up(game_board, score);
-                    generate_random(game_board);
+                    if(move_up(game_board, score))
+                        generate_random(game_board);
                     wrefresh(game);
                     mvwprintw(game, 0, game_x_max - 3, "UP");
                     refresh();
@@ -510,8 +509,8 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
                 //move left
                 case (int)'a':
                 case (int)'A':
-                    move_left(game_board, score);
-                    generate_random(game_board);
+                    if(move_left(game_board, score))
+                        generate_random(game_board);
                     wrefresh(game);
                     mvwprintw(game, 0, game_x_max - 5, "LEFT");
                     refresh();
@@ -520,8 +519,8 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
                 //move down
                 case (int)'s':
                 case (int)'S':
-                    move_down(game_board, score);
-                    generate_random(game_board);
+                    if(move_down(game_board, score))
+                        generate_random(game_board);
                     wrefresh(game);
                     mvwprintw(game, 0, game_x_max - 5, "DOWN");
                     refresh();
@@ -530,8 +529,8 @@ void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, in
                 //move right
                 case (int)'d':
                 case (int)'D':
-                    move_right(game_board, score);
-                    generate_random(game_board);
+                    if(move_right(game_board, score))
+                        generate_random(game_board);
                     wrefresh(game);
                     mvwprintw(game, 0, game_x_max - 6, "RIGHT");
                     refresh();
@@ -650,23 +649,28 @@ int is_2048(int (*game_board)[4])
     return 0;
 }
 
-void move_up(int (*game_board)[4], int *score)
+int move_up(int (*game_board)[4], int *score)
 {
-    for (int j = 0; j < 4; j++)
+    int copy_board[4][4];
+    for(int i = 0; i < 4; i++)
+        for(int j = 0; j < 4; j++)
+            copy_board[i][j] = game_board[i][j];
+
+    for(int j = 0; j < 4; j++)
     {
-        for (int i = 1; i < 4; i++)
+        for(int i = 1; i < 4; i++)
         {
-            if (game_board[i][j] != 0)
+            if(game_board[i][j] != 0)
             {
                 int k = i;
-                while (k > 0 && game_board[k - 1][j] == 0)
+                while(k > 0 && game_board[k - 1][j] == 0)
                 {
                     // Move the non-zero element up
                     game_board[k - 1][j] = game_board[k][j];
                     game_board[k][j] = 0;
                     k--;
                 }
-                if (k > 0 && game_board[k - 1][j] == game_board[k][j])
+                if(k > 0 && game_board[k - 1][j] == game_board[k][j])
                 {
                     // Merge identical elements
                     game_board[k - 1][j] *= 2;
@@ -676,25 +680,38 @@ void move_up(int (*game_board)[4], int *score)
             }
         }
     }
+
+    //check if move was valid, by comparing boards
+    for(int i = 0; i < 4; i++)
+        for(int j = 0; j < 4; j++)
+            if(copy_board[i][j] != game_board[i][j])
+                return 1;
+
+    return 0;
 }
 
-void move_down(int (*game_board)[4], int *score)
+int move_down(int (*game_board)[4], int *score)
 {
-    for (int j = 0; j < 4; j++)
+    int copy_board[4][4];
+    for(int i = 0; i < 4; i++)
+        for(int j = 0; j < 4; j++)
+            copy_board[i][j] = game_board[i][j];
+
+    for(int j = 0; j < 4; j++)
     {
-        for (int i = 2; i >= 0; i--)
+        for(int i = 2; i >= 0; i--)
         {
-            if (game_board[i][j] != 0)
+            if(game_board[i][j] != 0)
             {
                 int k = i;
-                while (k < 3 && game_board[k + 1][j] == 0)
+                while(k < 3 && game_board[k + 1][j] == 0)
                 {
                     // Move the non-zero element down
                     game_board[k + 1][j] = game_board[k][j];
                     game_board[k][j] = 0;
                     k++;
                 }
-                if (k < 3 && game_board[k + 1][j] == game_board[k][j])
+                if(k < 3 && game_board[k + 1][j] == game_board[k][j])
                 {
                     // Merge identical elements
                     game_board[k + 1][j] *= 2;
@@ -704,25 +721,38 @@ void move_down(int (*game_board)[4], int *score)
             }
         }
     }
+
+    //check if move was valid, by comparing boards
+    for(int i = 0; i < 4; i++)
+        for(int j = 0; j < 4; j++)
+            if(copy_board[i][j] != game_board[i][j])
+                return 1;
+
+    return 0;
 }
 
-void move_left(int (*game_board)[4], int *score)
+int move_left(int (*game_board)[4], int *score)
 {
-    for (int i = 0; i < 4; i++)
+    int copy_board[4][4];
+    for(int i = 0; i < 4; i++)
+        for(int j = 0; j < 4; j++)
+            copy_board[i][j] = game_board[i][j];
+
+    for(int i = 0; i < 4; i++)
     {
-        for (int j = 1; j < 4; j++)
+        for(int j = 1; j < 4; j++)
         {
-            if (game_board[i][j] != 0)
+            if(game_board[i][j] != 0)
             {
                 int k = j;
-                while (k > 0 && game_board[i][k - 1] == 0)
+                while(k > 0 && game_board[i][k - 1] == 0)
                 {
                     // Move the non-zero element to the left
                     game_board[i][k - 1] = game_board[i][k];
                     game_board[i][k] = 0;
                     k--;
                 }
-                if (k > 0 && game_board[i][k - 1] == game_board[i][k])
+                if(k > 0 && game_board[i][k - 1] == game_board[i][k])
                 {
                     // Merge identical elements
                     game_board[i][k - 1] *= 2;
@@ -732,25 +762,38 @@ void move_left(int (*game_board)[4], int *score)
             }
         }
     }
+
+    //check if move was valid, by comparing boards
+    for(int i = 0; i < 4; i++)
+        for(int j = 0; j < 4; j++)
+            if(copy_board[i][j] != game_board[i][j])
+                return 1;
+
+    return 0;
 }
 
-void move_right(int (*game_board)[4], int *score)
+int move_right(int (*game_board)[4], int *score)
 {
-    for (int i = 0; i < 4; i++)
+    int copy_board[4][4];
+    for(int i = 0; i < 4; i++)
+        for(int j = 0; j < 4; j++)
+            copy_board[i][j] = game_board[i][j];
+
+    for(int i = 0; i < 4; i++)
     {
-        for (int j = 2; j >= 0; j--)
+        for(int j = 2; j >= 0; j--)
         {
-            if (game_board[i][j] != 0)
+            if(game_board[i][j] != 0)
             {
                 int k = j;
-                while (k < 3 && game_board[i][k + 1] == 0)
+                while(k < 3 && game_board[i][k + 1] == 0)
                 {
                     // Move the non-zero element to the right
                     game_board[i][k + 1] = game_board[i][k];
                     game_board[i][k] = 0;
                     k++;
                 }
-                if (k < 3 && game_board[i][k + 1] == game_board[i][k])
+                if(k < 3 && game_board[i][k + 1] == game_board[i][k])
                 {
                     // Merge identical elements
                     game_board[i][k + 1] *= 2;
@@ -760,6 +803,14 @@ void move_right(int (*game_board)[4], int *score)
             }
         }
     }
+
+    //check if move was valid, by comparing boards
+    for(int i = 0; i < 4; i++)
+        for(int j = 0; j < 4; j++)
+            if(copy_board[i][j] != game_board[i][j])
+                return 1;
+
+    return 0;
 }
 
 
