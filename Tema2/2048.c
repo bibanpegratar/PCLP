@@ -22,27 +22,28 @@ typedef struct
 WINDOW *init_window(int y_max, int x_max, int window_padding_height, int window_padding_width);
 WINDOW* init_square_window(int y_max, int x_max, int window_padding_height, int window_padding_width);
 void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int (*game_board)[4], cell_color_pair cells[12], int *score, int *has_resume);
-
 void quit_game();
 void game_loop(int (*game_board)[4], cell_color_pair cells[12], int new_game, int *score, int *has_resume);
 
+void print_board(WINDOW* game, int (*game_board)[4], cell_color_pair cells[12], int game_y_max, int game_x_max);
 void make_menu_action(char choices[][9], int highlight, int (*game_board)[4], cell_color_pair cells[12], int *score, int *has_resume);
 void menu_control(WINDOW **menu, int ch, char choices[][9], int (*game_board)[4], cell_color_pair cells[12], int *has_resume, int *highlight,  int *score, int *y_max, int* x_max, int *choice_height);
 int game_control(WINDOW **game, int ch, int (*game_board)[4], int *score, int *y_max, int *x_max, int *game_y_max, int *game_x_max);
 void show_end_screen(WINDOW *game, int *has_resume, int *score, int *y_max, int *x_max, int *end_screen_y_max, int *end_screen_x_max);
-void print_board(WINDOW* game, int (*game_board)[4], cell_color_pair cells[12], int game_y_max, int game_x_max);
-int is_move_available(int (*game_board)[4], int score);
-int is_2048(int (*game_board)[4]);
 
 int move_up(int (*game_board)[4], int *score);
 int move_down(int (*game_board)[4], int *score);
 int move_left(int (*game_board)[4], int *score);
 int move_right(int (*game_board)[4], int *score);
-void generate_random(int (*game_board)[4]);
+
+int is_move_available(int (*game_board)[4], int score);
+int is_2048(int (*game_board)[4]);
 int is_game_board_full(int (*game_board)[4]);
+void generate_random(int (*game_board)[4]);
 int make_best_move(int (*game_board)[4], int *score, int depth);
 int max_num(int a, int b, int c, int d);
 int count_empty_cells(int (*game_board)[4]);
+
 
 //custom colors for each cell value
 void define_custom_colors() {
@@ -399,18 +400,18 @@ void make_menu_action(char choices[][9], int highlight, int (*game_board)[4], ce
 {
     switch (highlight)
     {
-        /* start */
+        //start
         case 0:
             *has_resume = 1;
             game_loop(game_board, cells, 1, score, has_resume);
             break;
         
-        /* resume */
+        //resume
         case 1:
             game_loop(game_board, cells, 0, score, has_resume);
             break;
 
-        /* quit */
+        //quit
         case 2:
             quit_game();
             break;
@@ -442,19 +443,19 @@ void menu_control(WINDOW **menu, int ch, char choices[][9], int (*game_board)[4]
 
             //choose option
             case 10:
-                // unfocus menu
+                //unfocus menu
                 untouchwin(*menu);
                 wclear(*menu);
                 wrefresh(*menu);
                 refresh();
 
-                // call function according to highlighted option
+                //call function according to highlighted option
                 make_menu_action(choices, *highlight, game_board, cells, score, has_resume);
 
-                // resume is highlighted when refocusing pause menu
+                //resume is highlighted when refocusing pause menu
                 if(highlight == 0) highlight++;
 
-                // resize window after funxtion exists
+                //resize window after funxtion exists
                 wclear(*menu);
                 wrefresh(*menu);
                 refresh();
