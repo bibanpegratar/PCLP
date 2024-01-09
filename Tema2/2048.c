@@ -19,6 +19,11 @@ typedef struct
     int number_in_cell, color_pair_id;
 } cell_color_pair;
 
+typedef struct
+{
+    int a, b;
+} pair;
+
 WINDOW *init_window(int y_max, int x_max, int window_padding_height, int window_padding_width);
 WINDOW* init_square_window(int y_max, int x_max, int window_padding_height, int window_padding_width);
 void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int (*game_board)[4], cell_color_pair cells[12], int *score, int *has_resume);
@@ -704,12 +709,37 @@ int move_up(int (*game_board)[4], int *score)
                     game_board[k][j] = 0;
                     k--;
                 }
-                if(k > 0 && game_board[k - 1][j] == game_board[k][j])
+            }
+        }
+    }
+
+    for(j = 0; j < 4; j++)
+        for(i = 1; i < 4; i++)
+        {
+            int k = i;
+            if(k > 0 && game_board[k - 1][j] == game_board[k][j] && game_board[k][j] != 0)
+            {
+                //merge identical elements
+                game_board[k - 1][j] *= 2;
+                *score = *score + game_board[k - 1][j];
+                game_board[k][j] = 0;
+                k--;
+            }
+        }
+    
+    for(j = 0; j < 4; j++)
+    {
+        for(i = 1; i < 4; i++)
+        {
+            if(game_board[i][j] != 0)
+            {
+                int k = i;
+                while(k > 0 && game_board[k - 1][j] == 0)
                 {
-                    //merge identical elements
-                    game_board[k - 1][j] *= 2;
-                    *score = *score + game_board[k - 1][j];
+                    //move the non-zero element up
+                    game_board[k - 1][j] = game_board[k][j];
                     game_board[k][j] = 0;
+                    k--;
                 }
             }
         }
@@ -746,12 +776,39 @@ int move_down(int (*game_board)[4], int *score)
                     game_board[k][j] = 0;
                     k++;
                 }
-                if(k < 3 && game_board[k + 1][j] == game_board[k][j])
+            }
+        }
+    }
+
+    for(j = 0; j < 4; j++)
+    {
+        for(i = 2; i >= 0; i--)
+        {
+            int k = i;
+            if(k < 3 && game_board[k + 1][j] == game_board[k][j] && game_board[k][j] != 0)
+            {
+                //merge identical elements
+                game_board[k + 1][j] *= 2;
+                *score = *score + game_board[k + 1][j];
+                game_board[k][j] = 0;
+                k++;
+            }
+        }
+    }
+
+    for(j = 0; j < 4; j++)
+    {
+        for(i = 2; i >= 0; i--)
+        {
+            if(game_board[i][j] != 0)
+            {
+                int k = i;
+                while(k < 3 && game_board[k + 1][j] == 0)
                 {
-                    //merge identical elements
-                    game_board[k + 1][j] *= 2;
-                    *score = *score + game_board[k + 1][j];
+                    //move the non-zero element down
+                    game_board[k + 1][j] = game_board[k][j];
                     game_board[k][j] = 0;
+                    k++;
                 }
             }
         }
@@ -788,12 +845,39 @@ int move_left(int (*game_board)[4], int *score)
                     game_board[i][k] = 0;
                     k--;
                 }
-                if(k > 0 && game_board[i][k - 1] == game_board[i][k])
+            }
+        }
+    }
+
+    for(i = 0; i < 4; i++)
+    {
+        for(j = 1; j < 4; j++)
+        {
+            int k = j;
+            if(k > 0 && game_board[i][k - 1] == game_board[i][k] && game_board[i][k] != 0)
+            {
+                //merge identical elements
+                game_board[i][k - 1] *= 2;
+                *score = *score + game_board[i][k - 1];
+                game_board[i][k] = 0;
+                k--;
+            }
+        }
+    }
+
+    for(i = 0; i < 4; i++)
+    {
+        for(j = 1; j < 4; j++)
+        {
+            if(game_board[i][j] != 0)
+            {
+                int k = j;
+                while(k > 0 && game_board[i][k - 1] == 0)
                 {
-                    //merge identical elements
-                    game_board[i][k - 1] *= 2;
-                    *score = *score + game_board[i][k - 1];
+                    //move the non-zero element to the left
+                    game_board[i][k - 1] = game_board[i][k];
                     game_board[i][k] = 0;
+                    k--;
                 }
             }
         }
@@ -830,12 +914,39 @@ int move_right(int (*game_board)[4], int *score)
                     game_board[i][k] = 0;
                     k++;
                 }
-                if(k < 3 && game_board[i][k + 1] == game_board[i][k])
+            }
+        }
+    }
+
+    for(i = 0; i < 4; i++)
+    {
+        for(j = 2; j >= 0; j--)
+        {
+            int k = j;
+            if(k < 3 && game_board[i][k + 1] == game_board[i][k] && game_board[i][k] != 0)
+            {
+                //merge identical elements
+                game_board[i][k + 1] *= 2;
+                *score = *score + game_board[i][k + 1];
+                game_board[i][k] = 0;
+                k++;
+            }
+        }
+    }
+
+    for(i = 0; i < 4; i++)
+    {
+        for(j = 2; j >= 0; j--)
+        {
+            if(game_board[i][j] != 0)
+            {
+                int k = j;
+                while(k < 3 && game_board[i][k + 1] == 0)
                 {
-                    //merge identical elements
-                    game_board[i][k + 1] *= 2;
-                    *score = *score + game_board[i][k + 1];
+                    //move the non-zero element to the right
+                    game_board[i][k + 1] = game_board[i][k];
                     game_board[i][k] = 0;
+                    k++;
                 }
             }
         }
@@ -886,6 +997,7 @@ int is_game_board_full(int (*game_board)[4])
 }
 
 
+//recursive algorithm that checks for move that gives the most empty cells
 //recursive algorithm that checks for move that gives the most empty cells
 int make_best_move(int (*game_board)[4], int *score, int depth)
 {
