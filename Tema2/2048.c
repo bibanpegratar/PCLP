@@ -13,7 +13,7 @@
 #define GAME_PADDING_WIDTH 0
 #define AI_DEPTH 5
 #define END_SCREEN_DELAY 2000
-#define SHOW_LAST_BOARD_DELAY 10000
+#define SHOW_LAST_BOARD_DELAY 1000
 #define GAMESAVE_FILENAME "gamesave.bin"
 
 #define HAS_RESUME_FILE_POS 0
@@ -22,9 +22,14 @@
 #define GAME_BOARD_FILE_POS 3
 
 //set at 1 second for time to refresh each second if no input recieved
-#define TIMEOUT_MS 1000
+#define TIMEOUT_MS 1
 //multiplied with TIMEOUT_MS, for making automatic move after some time
-#define TIMEOUT_CNT 2
+#define TIMEOUT_CNT 1
+
+//ncurses colors work with 0-999 values for colors
+//conversion value
+#define RGB_TO_COLOR 1000/255
+#define INTRO_COLOR_PAIR_ID 13
 
 typedef struct
 {
@@ -59,6 +64,7 @@ int max_num(int a, int b, int c, int d);
 int count_empty_cells(int game_board[4][4]);
 int compare_boards(int game_board[4][4], int game_board_cpy[4][4]);
 void copy_boards(int game_board[4][4], int game_board_cpy[4][4]);
+void rgb_init_color(int color_number, int r, int g, int b);
 
 int set_resume_state(int has_resume);
 int load_resume_state();
@@ -68,22 +74,6 @@ int set_highscore_state(int highsocre);
 int load_highscore_state();
 int set_score_state(int score);
 int load_score_state();
-
-//custom colors for each cell value
-void define_custom_colors() {
-    init_color(8, 0, 200, 300);    // black
-    init_color(9, 900, 850, 800);  // light gray
-    init_color(10, 500, 500, 500); // darker gray
-    init_color(11, 990, 600, 300); // orange
-    init_color(12, 990, 500, 300); // darker orange
-    init_color(13, 990, 400, 300); // more darker orange
-    init_color(14, 990, 300, 300); // red
-    init_color(15, 990, 200, 300); // dark red
-    init_color(16, 990, 100, 300); // purple
-    init_color(17, 900, 0, 300);   // dark purple
-    init_color(18, 770, 0, 300);   // magenta
-    init_color(19, 600, 0, 300);   // dark magenta
-}
 
 int main(int argc, char **argv)
 {
@@ -98,11 +88,26 @@ int main(int argc, char **argv)
     //do not display input characters
     noecho();
 
-    //enable terminal colors
-    if(has_colors())
+    //enable terminal colors, if colors can be changed
+    if(has_colors() && can_change_color())
         start_color(); 
 
-    define_custom_colors();
+    //define custom colors for cells
+    rgb_init_color(8, 0, 0, 25);       //dark blue
+    rgb_init_color(9, 200, 200, 200);  //light gray
+    rgb_init_color(10, 125, 125, 125); //dark gray
+    rgb_init_color(11, 255, 180, 0);   //yellow
+    rgb_init_color(12, 255, 120, 0);   //orange
+    rgb_init_color(13, 255, 80, 0);    //darker orange
+    rgb_init_color(14, 255, 150, 150); //pink-ish
+    rgb_init_color(15, 255, 100, 100); //darker pink
+    rgb_init_color(16, 255, 50, 50);   //light red
+    rgb_init_color(17, 200, 0, 0);     //red
+    rgb_init_color(18, 150, 0, 0);     //dark red
+
+    //random value for menu intro text
+    srand(time(NULL));
+    rgb_init_color(19, rand() % 256, rand() % 256, rand() % 256); 
     
     //initialize color pairs for each type of cell in game
     init_pair(1, COLOR_WHITE, COLOR_BLACK);  // empty cell
@@ -117,6 +122,7 @@ int main(int argc, char **argv)
     init_pair(10, COLOR_BLACK, 16);          // 512
     init_pair(11, COLOR_BLACK, 17);          // 1024
     init_pair(12, COLOR_BLACK, 18);          // 2048
+    init_pair(INTRO_COLOR_PAIR_ID, 19, COLOR_BLACK); //intro text
 
     cell_color_pair cells[12] = 
     {
@@ -175,6 +181,7 @@ int main(int argc, char **argv)
     };
 
     int game_board [4][4] = {0};
+
     int score = load_score_state();
     int has_resume = load_resume_state();
     int highscore = load_highscore_state();
@@ -256,11 +263,11 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int g
     
         //print intro text on upper side of menu
         wattron(menu, A_BOLD);
-        wattron(menu, COLOR_PAIR(1));
+        wattron(menu, COLOR_PAIR(INTRO_COLOR_PAIR_ID));
         for(i = 0; i < 7; i++)
                 mvwprintw(menu, i + 2, (x_max - strlen(intro_text[i]) - 2) / 2, intro_text[i]);
         wattroff(menu, A_BOLD);
-        wattroff(menu, COLOR_PAIR(1));
+        wattroff(menu, COLOR_PAIR(INTRO_COLOR_PAIR_ID));
 
         if(!*has_resume) current_choice_height = choice_height - 1;
         else current_choice_height = choice_height;
@@ -532,6 +539,7 @@ int game_control(WINDOW **game, int ch, int game_board[4][4], int *score, int *y
         //move up
         case (int)'w':
         case (int)'W':
+        case KEY_UP:
             if(move_up(game_board, score))
                 generate_random(game_board);
             wrefresh(*game);
@@ -543,6 +551,7 @@ int game_control(WINDOW **game, int ch, int game_board[4][4], int *score, int *y
         //move left
         case (int)'a':
         case (int)'A':
+        case KEY_LEFT:
             if(move_left(game_board, score))
                 generate_random(game_board);
             wrefresh(*game);
@@ -554,6 +563,7 @@ int game_control(WINDOW **game, int ch, int game_board[4][4], int *score, int *y
         //move down
         case (int)'s':
         case (int)'S':
+        case KEY_DOWN:
             if(move_down(game_board, score))
                 generate_random(game_board);
             wrefresh(*game);
@@ -565,6 +575,7 @@ int game_control(WINDOW **game, int ch, int game_board[4][4], int *score, int *y
         //move right
         case (int)'d':
         case (int)'D':
+        case KEY_RIGHT:
             if(move_right(game_board, score))
                 generate_random(game_board);
             wrefresh(*game);
@@ -1025,9 +1036,7 @@ void generate_random(int game_board[4][4])
 {
     int i, j, value = 0;
 
-    //random seed
-    time_t t;
-    srand((unsigned) time(&t));
+    srand(time(NULL));
 
     //try and generate while there is free space on board
     while(!is_game_board_full(game_board))
@@ -1315,4 +1324,14 @@ void print_menu_options(WINDOW *menu, char choices[][9], int current_choice_heig
             current_choice_height += MENU_CHOICES_PADDING;
         }
     }
+}
+
+//wrapper function for init_color for easier usage
+void rgb_init_color(int color_number, int r, int g, int b)
+{
+    int conv_r, conv_g, conv_b;
+    conv_r = round(r * RGB_TO_COLOR);
+    conv_g = round(g * RGB_TO_COLOR);
+    conv_b = round(b * RGB_TO_COLOR);
+    init_color(color_number, conv_r, conv_g, conv_b);
 }
