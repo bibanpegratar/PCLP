@@ -11,13 +11,15 @@
 #define MENU_CHOICES_TOP_OFFSET 10
 #define GAME_PADDING_HEIGHT 4
 #define GAME_PADDING_WIDTH 0
-#define AI_DEPTH 8
+#define AI_DEPTH 5
 #define END_SCREEN_DELAY 2000
+#define SHOW_LAST_BOARD_DELAY 10000
 #define GAMESAVE_FILENAME "gamesave.bin"
 
 #define HAS_RESUME_FILE_POS 0
 #define HIGHSCORE_FILE_POS 1
-#define GAME_BOARD_FILE_POS 2
+#define SCORE_FILE_POS 2
+#define GAME_BOARD_FILE_POS 3
 
 //set at 1 second for time to refresh each second if no input recieved
 #define TIMEOUT_MS 1000
@@ -33,13 +35,12 @@ typedef struct
 WINDOW *init_window(int y_max, int x_max, int window_padding_height, int window_padding_width);
 WINDOW* init_square_window(int y_max, int x_max, int window_padding_height, int window_padding_width);
 
-//
 void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int game_board[4][4], cell_color_pair cells[12], int *score, int *has_resume, int *curr_timeout_cnt, int *highscore);
 void print_menu_options(WINDOW *menu, char choices[][9], int current_choice_height, int highlight, int has_resume, int x_max);
 void menu_control(WINDOW **menu, int ch, char choices[][9], int game_board[4][4], cell_color_pair cells[12], int *has_resume, int *highlight,  int *score, int *y_max, int* x_max, int *choice_height, int *curr_timeout_cnt, int *highscore);
 void make_menu_action(char choices[][9], int highlight, int game_board[4][4], cell_color_pair cells[12], int *score, int *has_resume, int *curr_timeout_cnt, int *highscore);
 void show_end_screen(WINDOW *game, int *has_resume, int *score, int *y_max, int *x_max, int *end_screen_y_max, int *end_screen_x_max, int *highscore);
-void quit_game(int *has_resume, int game_board[4][4], int *highscore);
+void quit_game(int *has_resume, int game_board[4][4], int *highscore, int *);
 
 int move_up(int game_board[4][4], int *score);
 int move_down(int game_board[4][4], int *score);
@@ -56,14 +57,17 @@ void generate_random(int game_board[4][4]);
 int make_best_move(WINDOW *game, int game_board[4][4], int *score, int depth);
 int max_num(int a, int b, int c, int d);
 int count_empty_cells(int game_board[4][4]);
-int compare_boards(int game_board[4][4], int (*game_board_cpy)[4]);
+int compare_boards(int game_board[4][4], int game_board_cpy[4][4]);
+void copy_boards(int game_board[4][4], int game_board_cpy[4][4]);
 
 int set_resume_state(int has_resume);
 int load_resume_state();
-void load_board_state(int game_board[4][4]);
 void set_board_state(int game_board[4][4]);
+void load_board_state(int game_board[4][4]);
 int set_highscore_state(int highsocre);
 int load_highscore_state();
+int set_score_state(int score);
+int load_score_state();
 
 //custom colors for each cell value
 void define_custom_colors() {
@@ -171,7 +175,7 @@ int main(int argc, char **argv)
     };
 
     int game_board [4][4] = {0};
-    int score = 0;
+    int score = load_score_state();
     int has_resume = load_resume_state();
     int highscore = load_highscore_state();
     int curr_timeout_cnt = 0;
@@ -285,11 +289,12 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int g
     }
 }
 
-void quit_game(int *has_resume, int game_board[4][4], int *highscore) 
+void quit_game(int *has_resume, int game_board[4][4], int *highscore, int *score) 
 {
     //save state of game
     set_resume_state(*has_resume);
     set_highscore_state(*highscore);
+    set_score_state(*score);
     set_board_state(game_board);
 
     endwin();
@@ -406,8 +411,13 @@ void game_loop(int game_board[4][4], cell_color_pair cells[12], int new_game, in
         }
 
         //game has ended
-        if(!is_move_available(game, game_board, *score) && !is_2048(game_board))
+        if(!is_move_available(game, game_board, *score) || is_2048(game_board))
         {
+            //display last version of the board for SHOW_LAST_BOARD_DELAY ms
+            print_board(game, game_board, cells, game_y_max, game_x_max);
+            wrefresh(game);
+            refresh();
+            napms(SHOW_LAST_BOARD_DELAY);
             show_end_screen(game, has_resume, score, &y_max, &x_max, &end_screen_y_max, &end_screen_x_max, highscore);
             return;
         }
@@ -432,7 +442,7 @@ void make_menu_action(char choices[][9], int highlight, int game_board[4][4], ce
 
         //quit
         case 2:
-            quit_game(has_resume, game_board, highscore);
+            quit_game(has_resume, game_board, highscore, score);
             break;
 
         default:
@@ -586,7 +596,6 @@ int game_control(WINDOW **game, int ch, int game_board[4][4], int *score, int *y
 
 void show_end_screen(WINDOW *game, int *has_resume, int *score, int *y_max, int *x_max, int *end_screen_y_max, int *end_screen_x_max, int *highscore)
 {
-    printf("%d", *highscore);
     untouchwin(game);
     wclear(game);
     refresh();
@@ -684,7 +693,7 @@ void print_board(WINDOW* game, int game_board[4][4], cell_color_pair cells[12], 
 //checks if score changes after a move, if not, game is over
 int is_move_available(WINDOW* game, int game_board[4][4], int score)
 {
-    int i, j, ok = 0;
+    int ok = 0;
     int new_score = score;
     mvwprintw(game, 0, 1, "AVAILABLE: ");
     wrefresh(game);
@@ -695,9 +704,7 @@ int is_move_available(WINDOW* game, int game_board[4][4], int score)
 
     //UP
     int game_board_cpy[4][4];
-    for(i = 0; i < 4; i++)
-        for(j = 0; j < 4; j++)
-            game_board_cpy[i][j] = game_board[i][j];
+    copy_boards(game_board, game_board_cpy);
 
     move_up(game_board_cpy, &new_score);
     if(new_score != score || !compare_boards(game_board, game_board_cpy))
@@ -710,9 +717,7 @@ int is_move_available(WINDOW* game, int game_board[4][4], int score)
 
     //DOWN
     new_score = score;
-    for(i = 0; i < 4; i++)
-        for(j = 0; j < 4; j++)
-        game_board_cpy[i][j] = game_board[i][j];
+    copy_boards(game_board, game_board_cpy);
 
     move_down(game_board_cpy, &new_score);
     if(new_score != score || !compare_boards(game_board, game_board_cpy))
@@ -725,9 +730,7 @@ int is_move_available(WINDOW* game, int game_board[4][4], int score)
 
     //LEFT
     new_score = score;
-    for(i = 0; i < 4; i++)
-        for(j = 0; j < 4; j++)
-        game_board_cpy[i][j] = game_board[i][j];
+    copy_boards(game_board, game_board_cpy);
 
     move_left(game_board_cpy, &new_score);
     if(new_score != score || !compare_boards(game_board, game_board_cpy))
@@ -740,9 +743,7 @@ int is_move_available(WINDOW* game, int game_board[4][4], int score)
 
     //RIGHT
     new_score = score;
-    for(i = 0; i < 4; i++)
-        for(j = 0; j < 4; j++)
-        game_board_cpy[i][j] = game_board[i][j];
+    copy_boards(game_board, game_board_cpy);
 
     move_right(game_board_cpy, &new_score);
     if(new_score != score || !compare_boards(game_board, game_board_cpy))
@@ -770,9 +771,7 @@ int move_up(int game_board[4][4], int *score)
 {
     int i, j;
     int copy_board[4][4];
-    for(i = 0; i < 4; i++)
-        for(j = 0; j < 4; j++)
-            copy_board[i][j] = game_board[i][j];
+    copy_boards(game_board, copy_board);
 
     //shift all 0 elements
     for(j = 0; j < 4; j++)
@@ -836,9 +835,7 @@ int move_down(int game_board[4][4], int *score)
 {
     int i, j;
     int copy_board[4][4];
-    for(i = 0; i < 4; i++)
-        for(j = 0; j < 4; j++)
-            copy_board[i][j] = game_board[i][j];
+    copy_boards(game_board, copy_board);
 
     for(j = 0; j < 4; j++)
     {
@@ -901,9 +898,7 @@ int move_left(int game_board[4][4], int *score)
 {
     int i, j;
     int copy_board[4][4];
-    for(i = 0; i < 4; i++)
-        for(j = 0; j < 4; j++)
-            copy_board[i][j] = game_board[i][j];
+    copy_boards(game_board, copy_board);
 
     for(i = 0; i < 4; i++)
     {
@@ -966,9 +961,7 @@ int move_right(int game_board[4][4], int *score)
 {
     int i, j;
     int copy_board[4][4];
-    for(i = 0; i < 4; i++)
-        for(j = 0; j < 4; j++)
-            copy_board[i][j] = game_board[i][j];
+    copy_boards(game_board, copy_board);
 
     for(i = 0; i < 4; i++)
     {
@@ -1152,9 +1145,12 @@ int count_empty_cells(int game_board[4][4])
 }
 
 //TODO: write in README
-//first int in binary file is for has_resume
-//second int in binary file is for highest score
-//next 16 ints are for the last modified board after exit
+//binary file fomat
+//  - first int in binary file is for has_resume
+//  - second int in binary file is for highest score
+//  - next 16 ints are for the last modified board after exit
+//always call set functions in this order (set_resume_state creates file)
+
 //creates gamesave file and writes has_resume state
 //game state is only saved to file when quitting to pause menu
 int set_resume_state(int has_resume)
@@ -1220,11 +1216,41 @@ int load_highscore_state()
     {
         fseek(game_save, HIGHSCORE_FILE_POS * sizeof(int), SEEK_SET);
         fread(&highscore, sizeof(highscore), 1, game_save);
-        printf("%d", highscore);
         fclose(game_save);
     }
 
     return highscore;
+}
+
+int set_score_state(int score)
+{
+    FILE *game_save;
+    int score_copy = score;
+    game_save = fopen(GAMESAVE_FILENAME, "ab");
+    
+    if(game_save != NULL)
+    {
+        fwrite(&score_copy, sizeof(int), 1, game_save);
+        fclose(game_save);
+    }
+
+    return score_copy;
+}
+
+int load_score_state()
+{
+    FILE *game_save;
+    int score = 0;
+    game_save = fopen(GAMESAVE_FILENAME, "rb");
+
+    if(game_save != NULL)
+    {
+        fseek(game_save, SCORE_FILE_POS * sizeof(int), SEEK_SET);
+        fread(&score, sizeof(score), 1, game_save);
+        fclose(game_save);
+    }
+
+    return score;
 }
 
 //append after resume_state, the game_board
@@ -1255,13 +1281,23 @@ void load_board_state(int game_board[4][4])
 }
 
 //returns 1 if boards are equal
-int compare_boards(int game_board[4][4], int (*game_board_cpy)[4])
+int compare_boards(int game_board[4][4], int game_board_cpy[4][4])
 {
-    for(int i = 0; i < 4; i++)
-        for(int j = 0; j < 4; j++)
+    int i, j;
+    for(i = 0; i < 4; i++)
+        for(j = 0; j < 4; j++)
             if(game_board[i][j] != game_board_cpy[i][j])
                 return 0;
     return 1;
+}
+
+//copies game_board into game_board_copy
+void copy_boards(int game_board[4][4], int game_board_copy[4][4])
+{
+    int i, j;
+    for(i = 0; i < 4; i++)
+        for(j = 0; j < 4; j++)
+            game_board_copy[i][j] = game_board[i][j];
 }
 
 void print_menu_options(WINDOW *menu, char choices[][9], int current_choice_height, int highlight, int has_resume, int x_max)
