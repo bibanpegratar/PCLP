@@ -4,46 +4,52 @@
 #include <math.h>
 #include <time.h>
 
+//in % of max sizes
 #define MENU_PADDING_HEIGHT 5
 #define MENU_PADDING_WIDTH 5
+
 #define MENU_CHOICES 3
 #define MENU_CHOICES_PADDING 2
+
+//in number of lines/columns
 #define MENU_CHOICES_TOP_OFFSET 10
 #define GAME_PADDING_HEIGHT 4
 #define GAME_PADDING_WIDTH 0
+#define SCORE_X_OFFSET 15
+#define MOVING_PROMPT_X_OFFSET 10
+#define DONE_PROMPT_X_OFFSET 6
+
+//for recursive automatic movement
 #define AI_DEPTH 5
 #define END_SCREEN_DELAY 2000
 #define SHOW_LAST_BOARD_DELAY 1000
+
 #define GAMESAVE_FILENAME "gamesave.bin"
 
+//offsets for each variable in gamesave file
 #define HAS_RESUME_FILE_POS 0
 #define HIGHSCORE_FILE_POS 1
 #define SCORE_FILE_POS 2
 #define GAME_BOARD_FILE_POS 3
 
-//set at 1 second for time to refresh each second if no input recieved
-#define TIMEOUT_MS 1
+//set at 1000 ms for current time to refresh each second if no input recieved
+#define TIMEOUT_MS 1000
 //multiplied with TIMEOUT_MS, for making automatic move after some time
-#define TIMEOUT_CNT 1
+#define TIMEOUT_CNT 2
 
 //ncurses colors work with 0-999 values for colors
 //conversion value
 #define RGB_TO_COLOR 1000/255
 #define INTRO_COLOR_PAIR_ID 13
 
-typedef struct
-{
-    int number_in_cell, color_pair_id;
-} cell_color_pair;
-
 //window creation
 WINDOW *init_window(int y_max, int x_max, int window_padding_height, int window_padding_width);
 WINDOW* init_square_window(int y_max, int x_max, int window_padding_height, int window_padding_width);
 
-void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int game_board[4][4], cell_color_pair cells[12], int *score, int *has_resume, int *curr_timeout_cnt, int *highscore);
+void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int game_board[4][4], int cells[12], int *score, int *has_resume, int *curr_timeout_cnt, int *highscore);
 void print_menu_options(WINDOW *menu, char choices[][9], int current_choice_height, int highlight, int has_resume, int x_max);
-void menu_control(WINDOW **menu, int ch, char choices[][9], int game_board[4][4], cell_color_pair cells[12], int *has_resume, int *highlight,  int *score, int *y_max, int* x_max, int *choice_height, int *curr_timeout_cnt, int *highscore);
-void make_menu_action(char choices[][9], int highlight, int game_board[4][4], cell_color_pair cells[12], int *score, int *has_resume, int *curr_timeout_cnt, int *highscore);
+void menu_control(WINDOW **menu, int ch, char choices[][9], int game_board[4][4], int cells[12], int *has_resume, int *highlight,  int *score, int *y_max, int* x_max, int *choice_height, int *curr_timeout_cnt, int *highscore);
+void make_menu_action(char choices[][9], int highlight, int game_board[4][4], int cells[12], int *score, int *has_resume, int *curr_timeout_cnt, int *highscore);
 void show_end_screen(WINDOW *game, int *has_resume, int *score, int *y_max, int *x_max, int *end_screen_y_max, int *end_screen_x_max, int *highscore);
 void quit_game(int *has_resume, int game_board[4][4], int *highscore, int *);
 
@@ -52,9 +58,9 @@ int move_down(int game_board[4][4], int *score);
 int move_left(int game_board[4][4], int *score);
 int move_right(int game_board[4][4], int *score);
 
-void game_loop(int game_board[4][4], cell_color_pair cells[12], int new_game, int *score, int *has_resume, int *curr_timeout_cnt, int *highscore);
+void game_loop(int game_board[4][4], int cells[12], int new_game, int *score, int *has_resume, int *curr_timeout_cnt, int *highscore);
 int game_control(WINDOW **game, int ch, int game_board[4][4], int *score, int *y_max, int *x_max, int *game_y_max, int *game_x_max);
-void print_board(WINDOW* game, int game_board[4][4], cell_color_pair cells[12], int game_y_max, int game_x_max);
+void print_board(WINDOW* game, int game_board[4][4], int cells[12], int game_y_max, int game_x_max);
 int is_move_available(WINDOW* game, int game_board[4][4], int score);
 int is_2048(int game_board[4][4]);
 int is_game_board_full(int game_board[4][4]);
@@ -92,7 +98,7 @@ int main(int argc, char **argv)
     if(has_colors() && can_change_color())
         start_color(); 
 
-    //define custom colors for cells
+    //define custom colors for cells (conversions are approximate)
     rgb_init_color(8, 0, 0, 25);       //dark blue
     rgb_init_color(9, 200, 200, 200);  //light gray
     rgb_init_color(10, 125, 125, 125); //dark gray
@@ -105,7 +111,7 @@ int main(int argc, char **argv)
     rgb_init_color(17, 200, 0, 0);     //red
     rgb_init_color(18, 150, 0, 0);     //dark red
 
-    //random value for menu intro text
+    //random color each time for menu intro text
     srand(time(NULL));
     rgb_init_color(19, rand() % 256, rand() % 256, rand() % 256); 
     
@@ -124,41 +130,12 @@ int main(int argc, char **argv)
     init_pair(12, COLOR_BLACK, 18);          // 2048
     init_pair(INTRO_COLOR_PAIR_ID, 19, COLOR_BLACK); //intro text
 
-    cell_color_pair cells[12] = 
-    {
-        [1].number_in_cell = 2,
-        [1].color_pair_id = 2,
-
-        [2].number_in_cell = 4,
-        [2].color_pair_id = 3,
-
-        [3].number_in_cell = 8,
-        [3].color_pair_id = 4,
-
-        [4].number_in_cell = 16,
-        [4].color_pair_id = 5,
-
-        [5].number_in_cell = 32,
-        [5].color_pair_id = 6,
-
-        [6].number_in_cell = 64,
-        [6].color_pair_id = 7,
-
-        [7].number_in_cell = 128,
-        [7].color_pair_id = 8,
-
-        [8].number_in_cell = 256,
-        [8].color_pair_id = 9,
-
-        [9].number_in_cell = 512,
-        [9].color_pair_id = 10,
-
-        [10].number_in_cell = 1024,
-        [10].color_pair_id = 11,
-
-        [11].number_in_cell = 2048,
-        [11].color_pair_id = 12
-    };
+    //array for all color pairs
+    //each index represents the power of 2 for each posible number on board
+    int cells[12];
+    int i;
+    for(i = 1; i <= 12; i++)
+        cells[i] = i + 1; 
 
     //main menu options
     char choices[MENU_CHOICES][9]=
@@ -195,7 +172,8 @@ int main(int argc, char **argv)
     //create menu window
     WINDOW *menu = init_window(y_max, x_max, MENU_PADDING_HEIGHT, MENU_PADDING_WIDTH);
     operate_menu(menu, choices, intro_text, game_board, cells, &score, &has_resume, &curr_timeout_cnt, &highscore);
-
+    
+    delwin(menu);
     endwin();
     return 0;
 }
@@ -205,6 +183,9 @@ WINDOW *init_window(int y_max, int x_max, int window_padding_height, int window_
 {
     //menu window initialization
     int window_height, window_width, window_start_y, window_start_x;
+
+    //center window, with padding on width and height
+    //padding is in % of the given max window sizes 
     window_height = y_max - (window_padding_height * y_max) / 100;
     window_width = x_max - (window_padding_width * x_max) / 100;
     window_start_y = (y_max - window_height) / 2;
@@ -217,31 +198,40 @@ WINDOW *init_window(int y_max, int x_max, int window_padding_height, int window_
 //initialize a squared centered window with padding
 WINDOW* init_square_window(int y_max, int x_max, int window_padding_height, int window_padding_width)
 {
-    int window_l, window_padding;
+    int window_len, window_padding;
+    //take the smallest value between y and x for length of borders
     if(y_max < x_max)
     {
         window_padding = window_padding_height;
+        //make it a multiple of 4 for even spacing
         y_max /= 4;
         y_max *= 4;
-        window_l = y_max ;
+        window_len = y_max;
     }
     else 
     {
         window_padding = window_padding_width;
-        window_l = x_max - ((x_max - 5) % 4);
+        //make it a multiple of 4 for even spacing
+        x_max /= 4;
+        x_max *= 4;
+        window_len = x_max;
     }
     
     int window_start_y, window_start_x;
-    window_l = window_l - 2 * window_padding;
-    window_start_y = (y_max - window_l) / 2;
-    window_start_x = (x_max - window_l * 2) / 2;
+    //extract padding from both sides
+    window_len = window_len - 2 * window_padding;
 
-    WINDOW  *win = newwin(window_l + 1, window_l * 2 + 1, window_start_y, window_start_x);
+    //calculate starting value for y and x for the window to be centered
+    window_start_y = (y_max - window_len) / 2;
+    window_start_x = (x_max - window_len * 2) / 2;
+
+    //values found by testing appearence in terminal
+    WINDOW  *win = newwin(window_len + 1, window_len * 2 + 1, window_start_y, window_start_x);
     return win;
 }
 
 //menu screen functionality
-void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int game_board[4][4], cell_color_pair cells[12], int *score, int *has_resume, int *curr_timeout_cnt, int *highscore)
+void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int game_board[4][4], int cells[12], int *score, int *has_resume, int *curr_timeout_cnt, int *highscore)
 {
     int i;
     int ch = 0, highlight = 0, choice_height, current_choice_height;
@@ -252,7 +242,7 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int g
     {
         getmaxyx(menu, y_max, x_max);
 
-        //positions of menu items, relative to padidng
+        //positions of menu items, relative to padidng in between
         choice_height = (y_max - 2 - MENU_CHOICES_PADDING * (MENU_CHOICES - 1)) / (MENU_CHOICES - 1);
 
         //use special keys
@@ -261,7 +251,7 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int g
         //draw box
         box(menu, (int)' ' ,0); 
     
-        //print intro text on upper side of menu
+        //print intro text centered on upper side of menu
         wattron(menu, A_BOLD);
         wattron(menu, COLOR_PAIR(INTRO_COLOR_PAIR_ID));
         for(i = 0; i < 7; i++)
@@ -269,22 +259,24 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int g
         wattroff(menu, A_BOLD);
         wattroff(menu, COLOR_PAIR(INTRO_COLOR_PAIR_ID));
 
+        //skip resume option
         if(!*has_resume) current_choice_height = choice_height - 1;
         else current_choice_height = choice_height;
 
         print_menu_options(menu, choices, current_choice_height, highlight, *has_resume, x_max);
         
-        //move inside menu (arrow keys / WS, ENTER to Select)
+        //actions inside menu (arrow keys / WS to move, ENTER to Select)
         ch = wgetch(menu);
         menu_control(&menu, ch, choices, game_board, cells, has_resume, &highlight, score, &y_max, &x_max, &choice_height, curr_timeout_cnt, highscore);
 
-        //verify out of bounds
+        //verify out of upper bounds
         if(highlight < 0) 
         {
             highlight = 0;
             beep();
         }
 
+        //verify out of lower bounds
         if(highlight > MENU_CHOICES - 1) 
         {
             highlight = MENU_CHOICES - 1;
@@ -298,7 +290,7 @@ void operate_menu(WINDOW *menu, char choices[][9], char intro_text[7][24], int g
 
 void quit_game(int *has_resume, int game_board[4][4], int *highscore, int *score) 
 {
-    //save state of game
+    //save all required states to a binary file on game exit
     set_resume_state(*has_resume);
     set_highscore_state(*highscore);
     set_score_state(*score);
@@ -309,13 +301,17 @@ void quit_game(int *has_resume, int game_board[4][4], int *highscore, int *score
 }
 
 //game loop logic
-void game_loop(int game_board[4][4], cell_color_pair cells[12], int new_game, int *score, int *has_resume, int *curr_timeout_cnt, int *highscore)
+void game_loop(int game_board[4][4], int cells[12], int new_game, int *score, int *has_resume, int *curr_timeout_cnt, int *highscore)
 {
     int y_max, x_max, game_y_max, game_x_max, end_screen_y_max, end_screen_x_max, i, j;
+
+    //for current time
     time_t mytime = time(NULL);
     struct tm * time_str = localtime(&mytime);
     int ch;
-    char time_formated[100];
+
+    //HH:MM:SS
+    char time_formatted[9];
 
     //create game window
     getmaxyx(stdscr, y_max, x_max);
@@ -362,16 +358,20 @@ void game_loop(int game_board[4][4], cell_color_pair cells[12], int new_game, in
         //print game board
         print_board(game, game_board, cells, game_y_max, game_x_max);
     
-        //print current time
+        //get current time
         mytime = time(NULL);
         time_str = localtime(&mytime);
-        strftime(time_formated, sizeof(time_formated), "%H:%M:%S", time_str);
-        mvwprintw(game, game_y_max - 1, 2, "Time: %s", time_formated);
+
+        //time into HH:MM:SS format
+        strftime(time_formatted, sizeof(time_formatted), "%H:%M:%S", time_str);
+
+        //print time in bottom-left part of game board
+        mvwprintw(game, game_y_max - 1, 2, "Time: %s", time_formatted);
         wrefresh(game);
         refresh();
 
         //print current score
-        mvwprintw(game, game_y_max - 1, game_x_max - 1 - 15, "Score: %d", *score);
+        mvwprintw(game, game_y_max - 1, game_x_max - 1 - SCORE_X_OFFSET, "Score: %d", *score);
         wrefresh(game);
         refresh();
 
@@ -385,7 +385,7 @@ void game_loop(int game_board[4][4], cell_color_pair cells[12], int new_game, in
             //make move after TIMEOUT_CNT seconds have passed
             if(*curr_timeout_cnt >= TIMEOUT_CNT)
             {
-                mvwprintw(game, 0, game_x_max - 10, "MOVING...");
+                mvwprintw(game, 0, game_x_max - MOVING_PROMPT_X_OFFSET, "MOVING...");
                 wrefresh(game);
                 refresh();
 
@@ -394,7 +394,7 @@ void game_loop(int game_board[4][4], cell_color_pair cells[12], int new_game, in
                 refresh();
                 
                 box(game, 0, 0);
-                mvwprintw(game, 0, game_x_max - 6, "DONE");
+                mvwprintw(game, 0, game_x_max - DONE_PROMPT_X_OFFSET, "DONE");
                 wrefresh(game);
                 refresh();
 
@@ -411,10 +411,13 @@ void game_loop(int game_board[4][4], cell_color_pair cells[12], int new_game, in
         
         else
         {
-            wtimeout(game, TIMEOUT_MS);
             box(game, 0, 0);
             if(game_control(&game, ch, game_board, score, &y_max, &x_max, &game_y_max, &game_x_max) == 0)
+            {
+                delwin(game);
                 return;
+            }
+    
         }
 
         //game has ended
@@ -425,6 +428,7 @@ void game_loop(int game_board[4][4], cell_color_pair cells[12], int new_game, in
             wrefresh(game);
             refresh();
             napms(SHOW_LAST_BOARD_DELAY);
+            delwin(game);
             show_end_screen(game, has_resume, score, &y_max, &x_max, &end_screen_y_max, &end_screen_x_max, highscore);
             return;
         }
@@ -432,7 +436,7 @@ void game_loop(int game_board[4][4], cell_color_pair cells[12], int new_game, in
 
 }
 
-void make_menu_action(char choices[][9], int highlight, int game_board[4][4], cell_color_pair cells[12], int *score, int *has_resume, int *curr_timeout_cnt, int *highscore)
+void make_menu_action(char choices[][9], int highlight, int game_board[4][4], int cells[12], int *score, int *has_resume, int *curr_timeout_cnt, int *highscore)
 {
     switch (highlight)
     {
@@ -457,7 +461,7 @@ void make_menu_action(char choices[][9], int highlight, int game_board[4][4], ce
     }
 }
 
-void menu_control(WINDOW **menu, int ch, char choices[][9], int game_board[4][4], cell_color_pair cells[12], int *has_resume, int *highlight,  int *score, int *y_max, int* x_max, int *choice_height, int *curr_timeout_cnt, int *highscore)
+void menu_control(WINDOW **menu, int ch, char choices[][9], int game_board[4][4], int cells[12], int *has_resume, int *highlight,  int *score, int *y_max, int* x_max, int *choice_height, int *curr_timeout_cnt, int *highscore)
 {
     switch(ch)
         {
@@ -483,6 +487,7 @@ void menu_control(WINDOW **menu, int ch, char choices[][9], int game_board[4][4]
                 untouchwin(*menu);
                 wclear(*menu);
                 wrefresh(*menu);
+                delwin(*menu);
                 refresh();
 
                 //call function according to highlighted option
@@ -492,9 +497,6 @@ void menu_control(WINDOW **menu, int ch, char choices[][9], int game_board[4][4]
                 if(highlight == 0) highlight++;
 
                 //resize window after funxtion exists
-                wclear(*menu);
-                wrefresh(*menu);
-                refresh();
                 getmaxyx(stdscr, *y_max,* x_max);
                 *menu = init_window(*y_max, *x_max, MENU_PADDING_HEIGHT, MENU_PADDING_WIDTH);
                 *choice_height = (*y_max - 2 - MENU_CHOICES_PADDING * (MENU_CHOICES - 1)) / (MENU_CHOICES - 1);
@@ -509,6 +511,8 @@ void menu_control(WINDOW **menu, int ch, char choices[][9], int game_board[4][4]
                 wclear(*menu);
                 wrefresh(*menu);
                 refresh();
+                delwin(*menu);
+
                 getmaxyx(stdscr, *y_max, *x_max);
                 *menu = init_window(*y_max, *x_max, MENU_PADDING_HEIGHT, MENU_PADDING_WIDTH);
                 *choice_height = (*y_max - 2 - MENU_CHOICES_PADDING * (MENU_CHOICES - 1)) / (MENU_CHOICES - 1);
@@ -589,6 +593,9 @@ int game_control(WINDOW **game, int ch, int game_board[4][4], int *score, int *y
             wclear(*game);
             wrefresh(*game);
             refresh();
+            delwin(*game);
+            
+            //get new sizes of window
             getmaxyx(stdscr, *y_max, *x_max);
             *game = init_square_window(*y_max, *x_max, GAME_PADDING_HEIGHT, GAME_PADDING_HEIGHT);
             getmaxyx(*game, *game_y_max, *game_x_max);
@@ -607,10 +614,6 @@ int game_control(WINDOW **game, int ch, int game_board[4][4], int *score, int *y
 
 void show_end_screen(WINDOW *game, int *has_resume, int *score, int *y_max, int *x_max, int *end_screen_y_max, int *end_screen_x_max, int *highscore)
 {
-    untouchwin(game);
-    wclear(game);
-    refresh();
-    *has_resume = 0;
 
     //initialize end screen
     WINDOW *end_screen = init_square_window(*y_max, *x_max, GAME_PADDING_HEIGHT, GAME_PADDING_HEIGHT);
@@ -618,6 +621,7 @@ void show_end_screen(WINDOW *game, int *has_resume, int *score, int *y_max, int 
     touchwin(end_screen);
     box(end_screen, 0 ,0);
 
+    //print only highscore
     if(*score > *highscore)
     {
         *highscore = *score;
@@ -627,6 +631,7 @@ void show_end_screen(WINDOW *game, int *has_resume, int *score, int *y_max, int 
         refresh();
     }
 
+    //print highscore and current score
     else
     {
         mvwprintw(end_screen, *end_screen_y_max / 2, *end_screen_x_max / 2, "HIGH SCORE: %d", *highscore);
@@ -636,21 +641,22 @@ void show_end_screen(WINDOW *game, int *has_resume, int *score, int *y_max, int 
         refresh();
     }
 
-    
-
-    //wait before letting user press key to exit
+    //wait before letting user press key to exit(pause for END_SCREEN_DELAY)
     napms(END_SCREEN_DELAY);
     mvwprintw(end_screen, *end_screen_y_max / 2 + 2, *end_screen_x_max / 2, "Press any key to exit");
 
     //flush any characters pressed before prompt appears
     flushinp();
+
+    //pause for 50ms
     napms(50);
     wrefresh(end_screen);
     refresh();
     getch();
+    delwin(end_screen);
 }
 
-void print_board(WINDOW* game, int game_board[4][4], cell_color_pair cells[12], int game_y_max, int game_x_max)
+void print_board(WINDOW* game, int game_board[4][4], int cells[12], int game_y_max, int game_x_max)
 {
     int i, j, k, l;
     int col_pair_no;
@@ -667,13 +673,15 @@ void print_board(WINDOW* game, int game_board[4][4], cell_color_pair cells[12], 
                         if(k < game_y_max - 1 && l < game_x_max - 1)
                         {
                             wmove(game, k, l);
-                            col_pair_no = cells[(int)log2(game_board[i][j])].color_pair_id;
+                            
+                            //the indexes are the powers of 2 where the number is found at
+                            col_pair_no = cells[(int)log2(game_board[i][j])];
                             wattron(game, COLOR_PAIR(col_pair_no));
                             wprintw(game, " ");
-
                         }  
                     }
-                    
+                
+                //make the number a string
                 char dgt[5];
                 sprintf(dgt, "%d", game_board[i][i]);
 
@@ -684,6 +692,7 @@ void print_board(WINDOW* game, int game_board[4][4], cell_color_pair cells[12], 
                 wattroff(game, COLOR_PAIR(col_pair_no));
             }
 
+            //treat empty cells separatly (does not print 0)
             else
             {
                 for(k = i * game_y_max / 4 + 1; k < (i + 1) * game_y_max / 4; k++)
@@ -694,6 +703,7 @@ void print_board(WINDOW* game, int game_board[4][4], cell_color_pair cells[12], 
                             wmove(game, k, l);
                             wattron(game, COLOR_PAIR(1));
                             wprintw(game, " ");
+                            wattroff(game, COLOR_PAIR(1));
                         }  
                     }
             } 
@@ -701,7 +711,8 @@ void print_board(WINDOW* game, int game_board[4][4], cell_color_pair cells[12], 
     }
 }
 
-//checks if score changes after a move, if not, game is over
+//checks if score changes after a move or if positions on board have changed
+//if not, game is over, no moves avaiable
 int is_move_available(WINDOW* game, int game_board[4][4], int score)
 {
     int ok = 0;
@@ -710,8 +721,7 @@ int is_move_available(WINDOW* game, int game_board[4][4], int score)
     wrefresh(game);
     refresh();
     
-    //initialize board_copy before each simulated move
-    //check if score is different or if positions on board have changed
+    //copy game_board to board_copy before each simulated move
 
     //UP
     int game_board_cpy[4][4];
@@ -778,13 +788,16 @@ int is_2048(int game_board[4][4])
     return 0;
 }
 
+//all move functions use 2 for loops for shifting all 0 elements to
+//avoid having extra spaces on board after multiple joins in the same move
+//otherwise, there would be spaces between joined cells
 int move_up(int game_board[4][4], int *score)
 {
     int i, j;
     int copy_board[4][4];
     copy_boards(game_board, copy_board);
 
-    //shift all 0 elements
+    //shift non-0 cells
     for(j = 0; j < 4; j++)
     {
         for(i = 1; i < 4; i++)
@@ -794,7 +807,7 @@ int move_up(int game_board[4][4], int *score)
                 int k = i;
                 while(k > 0 && game_board[k - 1][j] == 0)
                 {
-                    //move the non-zero element up
+                    //move the non-zero cell up
                     game_board[k - 1][j] = game_board[k][j];
                     game_board[k][j] = 0;
                     k--;
@@ -803,14 +816,13 @@ int move_up(int game_board[4][4], int *score)
         }
     }
 
-    //merge cells 2 by 2
+    //merge identical cells 2 by 2
     for(j = 0; j < 4; j++)
         for(i = 1; i < 4; i++)
         {
             int k = i;
             if(k > 0 && game_board[k - 1][j] == game_board[k][j] && game_board[k][j] != 0)
             {
-                //merge identical elements
                 game_board[k - 1][j] *= 2;
                 *score = *score + game_board[k - 1][j];
                 game_board[k][j] = 0;
@@ -818,7 +830,7 @@ int move_up(int game_board[4][4], int *score)
             }
         }
     
-    //shift all 0 elements again
+    //shift non-0 cells again
     for(j = 0; j < 4; j++)
     {
         for(i = 1; i < 4; i++)
@@ -828,7 +840,7 @@ int move_up(int game_board[4][4], int *score)
                 int k = i;
                 while(k > 0 && game_board[k - 1][j] == 0)
                 {
-                    //move the non-zero element up
+                    //move the non-zero cells up
                     game_board[k - 1][j] = game_board[k][j];
                     game_board[k][j] = 0;
                     k--;
@@ -848,6 +860,7 @@ int move_down(int game_board[4][4], int *score)
     int copy_board[4][4];
     copy_boards(game_board, copy_board);
 
+    //shift non-0 cells
     for(j = 0; j < 4; j++)
     {
         for(i = 2; i >= 0; i--)
@@ -857,7 +870,7 @@ int move_down(int game_board[4][4], int *score)
                 int k = i;
                 while(k < 3 && game_board[k + 1][j] == 0)
                 {
-                    //move the non-zero element down
+                    //move the non-zero cells down
                     game_board[k + 1][j] = game_board[k][j];
                     game_board[k][j] = 0;
                     k++;
@@ -866,6 +879,7 @@ int move_down(int game_board[4][4], int *score)
         }
     }
 
+    //merge identical cells 2 by 2
     for(j = 0; j < 4; j++)
     {
         for(i = 2; i >= 0; i--)
@@ -873,7 +887,6 @@ int move_down(int game_board[4][4], int *score)
             int k = i;
             if(k < 3 && game_board[k + 1][j] == game_board[k][j] && game_board[k][j] != 0)
             {
-                //merge identical elements
                 game_board[k + 1][j] *= 2;
                 *score = *score + game_board[k + 1][j];
                 game_board[k][j] = 0;
@@ -882,6 +895,7 @@ int move_down(int game_board[4][4], int *score)
         }
     }
 
+    //shift non-0 cells again
     for(j = 0; j < 4; j++)
     {
         for(i = 2; i >= 0; i--)
@@ -891,7 +905,7 @@ int move_down(int game_board[4][4], int *score)
                 int k = i;
                 while(k < 3 && game_board[k + 1][j] == 0)
                 {
-                    //move the non-zero element down
+                    //move the non-zero cells down
                     game_board[k + 1][j] = game_board[k][j];
                     game_board[k][j] = 0;
                     k++;
@@ -911,6 +925,7 @@ int move_left(int game_board[4][4], int *score)
     int copy_board[4][4];
     copy_boards(game_board, copy_board);
 
+    //shift non-0 cells
     for(i = 0; i < 4; i++)
     {
         for(j = 1; j < 4; j++)
@@ -920,7 +935,7 @@ int move_left(int game_board[4][4], int *score)
                 int k = j;
                 while(k > 0 && game_board[i][k - 1] == 0)
                 {
-                    //move the non-zero element to the left
+                    //move the non-zero cells to the left
                     game_board[i][k - 1] = game_board[i][k];
                     game_board[i][k] = 0;
                     k--;
@@ -929,6 +944,7 @@ int move_left(int game_board[4][4], int *score)
         }
     }
 
+    //merge identical cells 2 by 2
     for(i = 0; i < 4; i++)
     {
         for(j = 1; j < 4; j++)
@@ -936,7 +952,6 @@ int move_left(int game_board[4][4], int *score)
             int k = j;
             if(k > 0 && game_board[i][k - 1] == game_board[i][k] && game_board[i][k] != 0)
             {
-                //merge identical elements
                 game_board[i][k - 1] *= 2;
                 *score = *score + game_board[i][k - 1];
                 game_board[i][k] = 0;
@@ -945,6 +960,7 @@ int move_left(int game_board[4][4], int *score)
         }
     }
 
+    //shift non-0 cells again
     for(i = 0; i < 4; i++)
     {
         for(j = 1; j < 4; j++)
@@ -954,7 +970,7 @@ int move_left(int game_board[4][4], int *score)
                 int k = j;
                 while(k > 0 && game_board[i][k - 1] == 0)
                 {
-                    //move the non-zero element to the left
+                    //move the non-zero cell to the left
                     game_board[i][k - 1] = game_board[i][k];
                     game_board[i][k] = 0;
                     k--;
@@ -974,6 +990,7 @@ int move_right(int game_board[4][4], int *score)
     int copy_board[4][4];
     copy_boards(game_board, copy_board);
 
+    //shift non-0 cells
     for(i = 0; i < 4; i++)
     {
         for(j = 2; j >= 0; j--)
@@ -983,7 +1000,7 @@ int move_right(int game_board[4][4], int *score)
                 int k = j;
                 while(k < 3 && game_board[i][k + 1] == 0)
                 {
-                    //move the non-zero element to the right
+                    //move the non-zero cells to the right
                     game_board[i][k + 1] = game_board[i][k];
                     game_board[i][k] = 0;
                     k++;
@@ -992,6 +1009,7 @@ int move_right(int game_board[4][4], int *score)
         }
     }
 
+    //merge identical cells 2 by 2
     for(i = 0; i < 4; i++)
     {
         for(j = 2; j >= 0; j--)
@@ -999,7 +1017,6 @@ int move_right(int game_board[4][4], int *score)
             int k = j;
             if(k < 3 && game_board[i][k + 1] == game_board[i][k] && game_board[i][k] != 0)
             {
-                //merge identical elements
                 game_board[i][k + 1] *= 2;
                 *score = *score + game_board[i][k + 1];
                 game_board[i][k] = 0;
@@ -1008,6 +1025,7 @@ int move_right(int game_board[4][4], int *score)
         }
     }
 
+    //shift non-0 cells again
     for(i = 0; i < 4; i++)
     {
         for(j = 2; j >= 0; j--)
@@ -1017,7 +1035,7 @@ int move_right(int game_board[4][4], int *score)
                 int k = j;
                 while(k < 3 && game_board[i][k + 1] == 0)
                 {
-                    //move the non-zero element to the right
+                    //move the non-zero cells to the right
                     game_board[i][k + 1] = game_board[i][k];
                     game_board[i][k] = 0;
                     k++;
@@ -1036,6 +1054,7 @@ void generate_random(int game_board[4][4])
 {
     int i, j, value = 0;
 
+    //random seed for each iteration
     srand(time(NULL));
 
     //try and generate while there is free space on board
@@ -1067,42 +1086,45 @@ int is_game_board_full(int game_board[4][4])
 //recursive algorithm that checks for move that gives the most empty cells
 int make_best_move(WINDOW *game, int game_board[4][4], int *score, int depth)
 {
-    int i, j, move;
+    int move;
+    int max_empty_cells = -1, temp_empty_cells, temp_score, move_empty_cells;
+    int best_move = -1;
+    int temp_board[4][4];
+
     if(!is_move_available(game, game_board, *score) || depth <= 0)
         return 0;
-
-    int max_empty_cells = -1;
-    int best_move = -1;
 
     //move in each direction and evaluate the resulting score
     for(move = 0; move < 4; move++)
     {
-        int temp_board[4][4];
-        int temp_empty_cells = count_empty_cells(game_board);
-        int temp_score = *score;
-
-        for(i = 0; i < 4; i++)
-            for(j = 0; j < 4; j++)
-                temp_board[i][j] = game_board[i][j];
+        temp_empty_cells = count_empty_cells(game_board);
+        temp_score = *score;
+        copy_boards(game_board, temp_board);
 
         switch(move)
         {
             case 0:
                 move_up(temp_board, &temp_score);
                 break;
+
             case 1:
                 move_down(temp_board, &temp_score);
                 break;
+
             case 2:
                 move_left(temp_board, &temp_score);
                 break;
+
             case 3:
                 move_right(temp_board, &temp_score);
+                break;
+            
+            default:
                 break;
         }
 
         //evaluate the move and update the best move if needed
-        int move_empty_cells = temp_empty_cells + make_best_move(game, temp_board, &temp_score, depth - 1);
+        move_empty_cells = temp_empty_cells + make_best_move(game, temp_board, &temp_score, depth - 1);
         if(max_empty_cells < move_empty_cells)
         {
             max_empty_cells = move_empty_cells;
@@ -1110,7 +1132,7 @@ int make_best_move(WINDOW *game, int game_board[4][4], int *score, int depth)
         }
     }
 
-    //make best move on main game board
+    //make best move on current game board
     switch(best_move)
     {
         case 0:
@@ -1127,6 +1149,9 @@ int make_best_move(WINDOW *game, int game_board[4][4], int *score, int depth)
 
         case 3:
             move_right(game_board, score);
+            break;
+        
+        default:
             break;
     }
 
@@ -1153,15 +1178,13 @@ int count_empty_cells(int game_board[4][4])
     return cnt;
 }
 
-//TODO: write in README
 //binary file fomat
 //  - first int in binary file is for has_resume
 //  - second int in binary file is for highest score
-//  - next 16 ints are for the last modified board after exit
+//  - next 16 ints are for the last state of board before exit
 //always call set functions in this order (set_resume_state creates file)
 
 //creates gamesave file and writes has_resume state
-//game state is only saved to file when quitting to pause menu
 int set_resume_state(int has_resume)
 {
     FILE *game_save;
@@ -1193,13 +1216,14 @@ int load_resume_state()
 
     else
     {
-        //fseek(game_save, HAS_RESUME_FILE_POS * sizeof(int), SEEK_SET);
+        fseek(game_save, HAS_RESUME_FILE_POS * sizeof(int), SEEK_SET);
         fread(&has_resume, sizeof(has_resume), 1, game_save);
         fclose(game_save);
     }
     return has_resume;
 }
 
+//appends highscore to gamesave file
 int set_highscore_state(int highscore)
 {
     FILE *game_save;
@@ -1215,6 +1239,7 @@ int set_highscore_state(int highscore)
     return highscore_copy;
 }
 
+//reads highscore from gamesave file
 int load_highscore_state()
 {
     FILE *game_save;
@@ -1231,6 +1256,7 @@ int load_highscore_state()
     return highscore;
 }
 
+//appends score to gamesave file
 int set_score_state(int score)
 {
     FILE *game_save;
@@ -1246,6 +1272,7 @@ int set_score_state(int score)
     return score_copy;
 }
 
+//read score from gamesave file
 int load_score_state()
 {
     FILE *game_save;
@@ -1262,7 +1289,7 @@ int load_score_state()
     return score;
 }
 
-//append after resume_state, the game_board
+//append game_board to gamesave file (last)
 void set_board_state(int game_board[4][4])
 {
     FILE *game_save;
@@ -1275,7 +1302,7 @@ void set_board_state(int game_board[4][4])
     }
 }
 
-//read game_board
+//read game_board from gamesave file()
 void load_board_state(int game_board[4][4])
 {
     FILE *game_save;
@@ -1327,11 +1354,12 @@ void print_menu_options(WINDOW *menu, char choices[][9], int current_choice_heig
 }
 
 //wrapper function for init_color for easier usage
+//converts rgb values to ncurses format
 void rgb_init_color(int color_number, int r, int g, int b)
 {
     int conv_r, conv_g, conv_b;
-    conv_r = round(r * RGB_TO_COLOR);
-    conv_g = round(g * RGB_TO_COLOR);
-    conv_b = round(b * RGB_TO_COLOR);
+    conv_r = r * RGB_TO_COLOR;
+    conv_g = g * RGB_TO_COLOR;
+    conv_b = b * RGB_TO_COLOR;
     init_color(color_number, conv_r, conv_g, conv_b);
 }
